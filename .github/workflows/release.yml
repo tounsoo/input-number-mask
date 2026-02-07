@@ -46,14 +46,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Library
+        run: pnpm build:lib
+
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: npx changeset publish
+          publish: |
+            rm -f .npmrc
+            env -u NPM_TOKEN npx changeset publish
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ""
+          NPM_TOKEN: "unused"
           NPM_CONFIG_PROVENANCE: true
