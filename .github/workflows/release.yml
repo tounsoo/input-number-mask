@@ -24,7 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: 'https://registry.npmjs.org/'
+          scope: '@tounsoo'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -64,6 +65,7 @@ jobs:
         run: |
           echo "Debugging OIDC..."
           echo "Current registry: $(npm config get registry)"
+          npm config list
           npm whoami || echo "OIDC Auth Check Failed (Expected if token not accepted)"
           echo "Proceeding to publish..."
 
