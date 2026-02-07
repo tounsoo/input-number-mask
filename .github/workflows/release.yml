@@ -59,5 +59,4 @@ jobs:
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           pnpm build:lib
-          rm -f .npmrc
-          env -u NPM_TOKEN -u NODE_AUTH_TOKEN npm publish --access public --provenance
+          pnpm publish --no-git-checks --access public --provenance
