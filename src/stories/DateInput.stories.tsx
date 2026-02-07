@@ -17,7 +17,7 @@ const DateInput = ({ template, placeholder, keepPosition }: any) => {
                 onChange={() => { }}
                 style={{ padding: '8px', fontSize: '1rem', width: '200px' }}
             />
-            <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#666' }} data-testid="raw-value">
+            <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#666' }} data-testid="raw-value" aria-live="polite">
                 Raw: {mask.rawValue}
             </div>
         </div>

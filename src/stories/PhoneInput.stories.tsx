@@ -20,7 +20,7 @@ const PhoneInput = ({ template, placeholder, keepPosition }: any) => {
             {/* Hidden input to simulate real form usage */}
             <input type="hidden" name="phone_raw" value={mask.rawValue} data-testid="hidden-raw" />
 
-            <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#666' }}>
+            <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#666' }} aria-live="polite">
                 Formatted: <span data-testid="formatted-value">{mask.value}</span><br />
                 Raw: <span data-testid="visible-raw">{mask.rawValue}</span>
             </div>

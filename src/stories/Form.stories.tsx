@@ -52,9 +52,10 @@ const RegistrationForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
                     id="phone"
                     type="tel"
                     required
+                    aria-describedby="phone-hint"
                     style={{ padding: '0.5rem', width: '100%' }}
                 />
-                <small>Format: (123) 456-7890</small>
+                <small id="phone-hint">Format: (123) 456-7890</small>
             </div>
 
             <div>
@@ -65,9 +66,10 @@ const RegistrationForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
                     id="dob"
                     type="text"
                     required
+                    aria-describedby="dob-hint"
                     style={{ padding: '0.5rem', width: '100%' }}
                 />
-                <small>Format: dd/mm/yyyy</small>
+                <small id="dob-hint">Format: dd/mm/yyyy</small>
             </div>
 
             <button type="submit" style={{ padding: '0.75rem', backgroundColor: '#007bff', color: 'white', border: 'none', cursor: 'pointer' }}>
@@ -140,11 +142,12 @@ const RawSubmitForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
                     id="raw-phone"
                     type="tel"
                     required
+                    aria-describedby="raw-phone-hint"
                     style={{ padding: '0.5rem', width: '100%' }}
                 />
                 {/* Hidden input to populate raw value */}
                 <input type="hidden" name="phone" value={phoneMask.rawValue} />
-                <small>Submitted value will be unmasked: {phoneMask.rawValue}</small>
+                <small id="raw-phone-hint" aria-live="polite">Submitted value will be unmasked: {phoneMask.rawValue}</small>
             </div>
             <button type="submit" style={{ padding: '0.75rem', backgroundColor: '#28a745', color: 'white', border: 'none', cursor: 'pointer' }}>
                 Submit Raw

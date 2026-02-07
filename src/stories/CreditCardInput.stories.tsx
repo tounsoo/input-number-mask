@@ -18,7 +18,7 @@ const CreditCardInput = ({ template, placeholder, keepPosition }: any) => {
                 style={{ padding: '8px', fontSize: '1rem', width: '250px' }}
             />
 
-            <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#666' }}>
+            <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#666' }} aria-live="polite">
                 Formatted: <span data-testid="formatted-value">{mask.value}</span><br />
                 Raw: <span data-testid="visible-raw">{mask.rawValue}</span>
             </div>
