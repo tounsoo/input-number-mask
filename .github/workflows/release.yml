@@ -50,14 +50,18 @@ jobs:
       - name: Build Library
         run: pnpm build:lib
 
-      - name: Create Release Pull Request or Publish
+      - name: Create Release Pull Request
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: npx changeset publish
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ""
-          NPM_CONFIG_PROVENANCE: true
+
+      - name: Publish to NPM
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          rm -f .npmrc
+          pnpm build:lib
+          npm publish --access public --provenance
