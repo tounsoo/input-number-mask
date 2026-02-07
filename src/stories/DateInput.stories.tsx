@@ -1,14 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useInputNumberMask } from '../useInputNumberMask';
+import type { UseInputNumberMaskProps } from '../useInputNumberMask';
 import { userEvent, within, expect } from 'storybook/test';
 
 // Component wrapper for Storybook
-const DateInput = ({ template, placeholder, keepPosition }: any) => {
-    const mask = useInputNumberMask({ template, placeholder, keepPosition });
+const DateInput = (props: UseInputNumberMaskProps) => {
+    const mask = useInputNumberMask(props);
     return (
         <div>
             <label htmlFor="date-input" style={{ display: 'block', marginBottom: '8px' }}>
-                Date Input ({template})
+                Date Input ({props.template})
             </label>
             <input
                 id="date-input"

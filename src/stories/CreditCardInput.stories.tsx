@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useInputNumberMask } from '../useInputNumberMask';
+import { useInputNumberMask, type UseInputNumberMaskProps } from '../useInputNumberMask';
 import { userEvent, within, expect } from 'storybook/test';
 
-const CreditCardInput = ({ template, placeholder, keepPosition }: any) => {
-    const mask = useInputNumberMask({ template, placeholder, keepPosition });
+const CreditCardInput = (props: UseInputNumberMaskProps) => {
+    const mask = useInputNumberMask(props);
 
     return (
         <div>

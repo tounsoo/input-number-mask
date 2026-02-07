@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useInputNumberMask } from '../useInputNumberMask';
+import type { UseInputNumberMaskProps } from '../useInputNumberMask';
 import { userEvent, within, expect } from 'storybook/test';
 
-const PhoneInput = ({ template, placeholder, keepPosition }: any) => {
-    const mask = useInputNumberMask({ template, placeholder, keepPosition });
+const PhoneInput = (props: UseInputNumberMaskProps) => {
+    const mask = useInputNumberMask(props);
 
     return (
         <form aria-label="phone-form">
