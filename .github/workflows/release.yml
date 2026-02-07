@@ -59,6 +59,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug OIDC Token
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          echo "Debugging OIDC..."
+          echo "Current registry: $(npm config get registry)"
+          npm whoami || echo "OIDC Auth Check Failed (Expected if token not accepted)"
+          echo "Proceeding to publish..."
+
       - name: Publish to NPM
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
