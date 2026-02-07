@@ -57,6 +57,6 @@ jobs:
 
       - name: Publish to NPM
         if: steps.changesets.outputs.hasChangesets == 'false'
-        run: pnpm release
-        env:
-          NPM_CONFIG_PROVENANCE: true
+        run: |
+          pnpm build:lib
+          npm publish --access public --provenance
