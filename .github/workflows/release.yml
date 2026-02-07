@@ -53,9 +53,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: |
-            rm -f .npmrc
-            env -u NPM_TOKEN npx changeset publish
+          publish: rm -f .npmrc && env -u NPM_TOKEN npx changeset publish
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
