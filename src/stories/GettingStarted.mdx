@@ -1,0 +1,107 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Getting Started" />
+
+# @tounsoo/input-number-mask
+
+A lightweight, dependency-free React hook for masking input values.
+
+## Installation
+
+```bash
+npm install @tounsoo/input-number-mask
+# or
+pnpm add @tounsoo/input-number-mask
+```
+
+## Basic Usage
+
+```tsx
+import { useInputNumberMask } from '@tounsoo/input-number-mask';
+
+const PhoneInput = () => {
+  const mask = useInputNumberMask({
+    template: '(ddd) ddd-dddd',
+    placeholder: '(___) ___-____',
+  });
+
+  return (
+    <input
+      ref={mask.ref}
+      value={mask.value}
+      onChange={() => {}}
+    />
+  );
+};
+```
+
+## Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `template` | `string` | Pattern where `d` = digit slot. e.g., `dd/dd/dddd` |
+| `placeholder` | `string` | What to show in empty slots. e.g., `mm/dd/yyyy` |
+| `keepPosition` | `boolean` | If `true`, deletion replaces with placeholder char instead of shifting |
+
+## Return Values
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ref` | `RefObject` | Attach to your input element |
+| `value` | `string` | The formatted/masked value |
+| `rawValue` | `string` | The unmasked digits only |
+
+## Examples
+
+### Credit Card
+
+```tsx
+const mask = useInputNumberMask({
+  template: 'dddd-dddd-dddd-dddd',
+  placeholder: '####-####-####-####',
+});
+```
+
+### Date
+
+```tsx
+const mask = useInputNumberMask({
+  template: 'dd/dd/dddd',
+  placeholder: 'mm/dd/yyyy',
+});
+```
+
+### Phone with Keep Position
+
+```tsx
+const mask = useInputNumberMask({
+  template: '+1 (ddd) ddd-dddd',
+  placeholder: '+1 (___) ___-____',
+  keepPosition: true, // Deletion preserves structure
+});
+```
+
+## Form Submission
+
+Use `rawValue` for form submission to get unmasked digits:
+
+```tsx
+const Form = () => {
+  const phoneMask = useInputNumberMask({
+    template: '(ddd) ddd-dddd',
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('Raw phone:', phoneMask.rawValue); // "1234567890"
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input ref={phoneMask.ref} value={phoneMask.value} onChange={() => {}} />
+      <input type="hidden" name="phone" value={phoneMask.rawValue} />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
