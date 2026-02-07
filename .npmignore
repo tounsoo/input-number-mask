@@ -1,0 +1,43 @@
+# Build output
+dist
+*.tsbuildinfo
+
+# Source files (only dist should be published)
+src
+*.ts
+*.tsx
+!*.d.ts
+
+# Tests and stories
+**/*.test.*
+**/*.spec.*
+**/*.stories.*
+src/stories
+src/setupTests.ts
+
+# Config files
+vite.config.ts
+vite.config.lib.ts
+vitest.config.ts
+vitest.shims.d.ts
+tsconfig*.json
+eslint.config.js
+
+# Storybook
+.storybook
+storybook-static
+*storybook.log
+
+# Development
+node_modules
+.vscode
+.idea
+.DS_Store
+
+# CI/CD
+.github
+
+# Misc
+*.log
+.env
+.env.*

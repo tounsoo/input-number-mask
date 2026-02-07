@@ -1,21 +1,43 @@
 {
   "name": "@tounsoo/input-number-mask",
-  "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "A lightweight, dependency-free React hook for masking input values. Perfect for phone numbers, dates, credit cards, and more.",
   "packageManager": "pnpm@10.23.0",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lib": "tsc -p tsconfig.lib.json && vite build --config vite.config.lib.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm test && pnpm build:lib"
   },
-  "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.0.0",
@@ -42,10 +64,36 @@
     "globals": "^16.5.0",
     "jsdom": "^28.0.0",
     "playwright": "^1.58.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "storybook": "^10.2.7",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
     "vitest": "^4.0.18"
+  },
+  "keywords": [
+    "react",
+    "hook",
+    "input",
+    "mask",
+    "phone",
+    "date",
+    "credit-card",
+    "formatting",
+    "form"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tounsoo/input-number-mask.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tounsoo/input-number-mask/issues"
+  },
+  "homepage": "https://github.com/tounsoo/input-number-mask#readme",
+  "author": "tounsoo",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
   }
 }

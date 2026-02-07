@@ -17,13 +17,13 @@ import { cleanInput, formatWithMask, isDigit } from './utils/maskUtils';
  *                     unless specific requirements enforce strict position keeping.
  *                     TODO: fully implement "keep position" logic if needed.
  */
-interface UseInputNumberMaskProps {
+export interface UseInputNumberMaskProps {
     template: string;
     placeholder?: string;
     keepPosition?: boolean;
 }
 
-interface UseInputNumberMaskReturn {
+export interface UseInputNumberMaskReturn {
     value: string; // The raw value with formatting (e.g. "+1 (234) 567-8900")
     displayValue: string; // The value to display in the input
     rawValue: string; // The unmasked digits (e.g. "12345678")
