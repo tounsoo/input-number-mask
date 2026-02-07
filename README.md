@@ -98,6 +98,28 @@ export const MyForm = () => {
 |Placeholder|`string`|Required| The display string when input is empty or partial.|
 |keepPosition|`boolean`|`false`| If true, deleting a character replaces it with the placeholder char instead of shifting subsequent characters.|
 
+## Contributing
+
+### Release Process
+
+This project uses [Changesets](https://github.com/changesets/changesets) for version management and publishing.
+
+**When making changes:**
+
+1. Make your code changes
+2. Create a changeset:
+   ```bash
+   pnpm changeset
+   ```
+3. Follow the prompts to describe your changes and select the version bump type (patch/minor/major)
+4. Commit the changeset file along with your changes
+5. Push to main
+
+**Publishing flow:**
+
+- When changesets are merged to main, a "Version Packages" PR is automatically created
+- Merging the Version Packages PR will automatically publish to npm
+
 ## License
 
 MIT
