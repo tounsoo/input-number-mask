@@ -1,5 +1,9 @@
 # @tounsoo/input-number-mask
 
+[![npm version](https://img.shields.io/npm/v/@tounsoo/input-number-mask)](https://www.npmjs.com/package/@tounsoo/input-number-mask)
+[![npm bundle size](https://img.shields.io/bundlephobia/minzip/@tounsoo/input-number-mask)](https://bundlephobia.com/package/@tounsoo/input-number-mask)
+[![license](https://img.shields.io/npm/l/@tounsoo/input-number-mask)](https://github.com/tounsoo/input-number-mask/blob/main/LICENSE)
+
 A lightweight, dependency-free React hook for masking input values. Perfect for phone numbers, dates, credit cards, and more.
 
 ## Features
