@@ -4,7 +4,7 @@ import { userEvent, within, expect, fn } from 'storybook/test';
 import React from 'react';
 
 // Example form component using the hook
-const RegistrationForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
+const RegistrationForm = ({ onSubmit }: { onSubmit: (data: Record<string, unknown>) => void }) => {
     // Phone Mask
     const phoneMask = useInputNumberMask({
         template: '(ddd) ddd-dddd',
