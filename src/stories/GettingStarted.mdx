@@ -1,4 +1,5 @@
-import { Meta } from '@storybook/addon-docs/blocks';
+import { Meta, ArgTypes } from '@storybook/addon-docs/blocks';
+import { HookOptions, HookReturn } from './HookAPI';
 
 <Meta title="Getting Started" />
 
@@ -37,19 +38,11 @@ const PhoneInput = () => {
 
 ## Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `template` | `string` | Pattern where `d` = digit slot. e.g., `dd/dd/dddd` |
-| `placeholder` | `string` | What to show in empty slots. e.g., `mm/dd/yyyy` |
-| `keepPosition` | `boolean` | If `true`, deletion replaces with placeholder char instead of shifting |
+<ArgTypes of={HookOptions} />
 
 ## Return Values
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `ref` | `RefObject` | Attach to your input element |
-| `value` | `string` | The formatted/masked value |
-| `rawValue` | `string` | The unmasked digits only |
+<ArgTypes of={HookReturn} />
 
 ## Examples
 

@@ -15,5 +15,15 @@ const config: StorybookConfig = {
     name: "@storybook/react-vite",
     options: {}
   },
+  typescript: {
+    reactDocgen: 'react-docgen-typescript',
+    reactDocgenTypescriptOptions: {
+      compilerOptions: {
+        allowSyntheticDefaultImports: false,
+        esModuleInterop: false,
+      },
+      propFilter: () => true,
+    },
+  },
 };
 export default config;

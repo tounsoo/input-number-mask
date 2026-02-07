@@ -1,32 +1,48 @@
 import { useRef, useState, useLayoutEffect } from 'react';
 import { cleanInput, formatWithMask, isDigit } from './utils/maskUtils';
 
-/**
- * useInputNumberMask
- * 
- * A hook for masking number inputs with template support.
- * 
- * @param template The mask template. 'd' represents a digit. All other characters are treated as literals.
- *                 Example: "+1 (ddd) ddd-dddd" for US phone numbers.
- * @param placeholder Optional full-length placeholder. Characters that match the template literals 
- *                    will be displayed. 'd' positions can be filled with a placeholder char or kept as is.
- *                    Example: "dd/mm/yyyy" for a date mask "dd/mm/yyyy".
- * @param keepPosition If true, deleting a character will replace it with the placeholder char (if valid)
- *                     or keep the cursor position without shifting subsequent characters (if supported).
- *                     For now, we'll implement standard behavior where backspace deletes and shifts, 
- *                     unless specific requirements enforce strict position keeping.
- *                     TODO: fully implement "keep position" logic if needed.
- */
 export interface UseInputNumberMaskProps {
+    /**
+     * The mask template. 'd' represents a digit slot.
+     * All other characters are treated as literals.
+     * @example "+1 (ddd) ddd-dddd" for US phone numbers
+     */
     template: string;
+
+    /**
+     * Optional full-length placeholder shown in empty slots.
+     * Should match the template length.
+     * @example "mm/dd/yyyy" for a date mask
+     */
     placeholder?: string;
+
+    /**
+     * If true, deletion replaces with placeholder char
+     * instead of shifting subsequent digits left.
+     * @default false
+     */
     keepPosition?: boolean;
 }
 
 export interface UseInputNumberMaskReturn {
-    value: string; // The raw value with formatting (e.g. "+1 (234) 567-8900")
-    displayValue: string; // The value to display in the input
-    rawValue: string; // The unmasked digits (e.g. "12345678")
+    /** 
+     * The raw value with formatting applied 
+     * @example "+1 (234) 567-8900" 
+     */
+    value: string;
+    /** 
+     * Deprecated: alias for value. The value to display in the input. 
+     * @example "+1 (234) 567-8900" 
+     */
+    displayValue: string;
+    /** 
+     * The unmasked digits only 
+     * @example "1234567890" 
+     */
+    rawValue: string;
+    /** 
+     * Ref to be attached to the HTML input element 
+     */
     ref: React.RefObject<HTMLInputElement | null>;
 }
 
