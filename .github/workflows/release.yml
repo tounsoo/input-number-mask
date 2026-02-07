@@ -72,6 +72,5 @@ jobs:
       - name: Publish to NPM
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          rm -f .npmrc
           pnpm build:lib
           npm publish --access public --provenance
