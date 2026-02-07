@@ -50,10 +50,10 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: env -u NPM_TOKEN pnpm build:lib && env -u NPM_TOKEN npx changeset publish
+          publish: npx changeset publish
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: "unused"
+          NPM_TOKEN: ""
           NPM_CONFIG_PROVENANCE: true
