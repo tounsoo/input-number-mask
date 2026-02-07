@@ -50,7 +50,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: env -u NPM_TOKEN pnpm release
+          publish: env -u NPM_TOKEN pnpm build:lib && env -u NPM_TOKEN npx changeset publish
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
