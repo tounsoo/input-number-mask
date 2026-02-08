@@ -55,6 +55,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Publish to NPM
+      - name: Publish to NPM (First publish with token)
         if: steps.changesets.outputs.hasChangesets == 'false'
-        run: pnpm publish --access public --provenance --no-git-checks
+        run: pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
