@@ -60,13 +60,50 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug OIDC Token
+      - name: Debug OIDC Token (Decode JWT)
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          echo "Debugging OIDC..."
-          echo "Current registry: $(npm config get registry)"
+          echo "Debugging OIDC Token Claims..."
+          # Extract token from .npmrc
+          # Format is usually //registry.npmjs.org/:_authToken=ey...
+          TOKEN=$(grep -o 'authToken=.*' .npmrc | cut -d= -f2)
+          
+          if [ -z "$TOKEN" ]; then
+            echo "No token found in .npmrc!"
+            exit 1
+          fi
+
+          echo "Token found (length: ${#TOKEN})"
+          
+          # Decode JWT Payload (Part 2 of 3)
+          # We use node to decode the base64 part
+          PAYLOAD=$(echo $TOKEN | cut -d. -f2)
+          
+          echo "Decoding JWT Claims:"
+          node -e "
+            try {
+              const payload = '$PAYLOAD';
+              const decoded = Buffer.from(payload, 'base64').toString('utf-8');
+              const json = JSON.parse(decoded);
+              console.log('--- OIDC CLAIMS ---');
+              console.log('sub:', json.sub);
+              console.log('iss:', json.iss);
+              console.log('aud:', json.aud);
+              console.log('ref:', json.ref);
+              console.log('sha:', json.sha);
+              console.log('repository:', json.repository);
+              console.log('job_workflow_ref:', json.job_workflow_ref);
+              console.log('event_name:', json.event_name);
+              console.log('full_payload:', JSON.stringify(json, null, 2));
+              console.log('-------------------');
+            } catch (e) {
+              console.error('Failed to decode JWT:', e);
+            }
+          "
+          
+          echo "Checking npm whoami..."
           npm config list
-          npm whoami || echo "OIDC Auth Check Failed (Expected if token not accepted)"
+          npm whoami || echo "OIDC Auth Check Failed"
           echo "Proceeding to publish..."
 
       - name: Publish to NPM
