@@ -1,3 +1,3 @@
-// Export hooks and types
+// Export hooks, types, and utilities
 export { useInputNumberMask } from './useInputNumberMask';
 export type { UseInputNumberMaskProps, UseInputNumberMaskReturn } from './useInputNumberMask';
