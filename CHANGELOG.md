@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.0.7
+
+### Patch Changes
+
+- aa9e4d8: ci: verify final release automation with git tags and github release creation
+
 ## 1.0.6
 
 ### Patch Changes
