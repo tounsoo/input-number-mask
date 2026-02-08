@@ -104,6 +104,14 @@ export const MyForm = () => {
 
 ## Contributing
 
+### Development
+
+To start the development server with Storybook:
+
+```bash
+pnpm storybook
+```
+
 ### Release Process
 
 This project uses [Changesets](https://github.com/changesets/changesets) for version management and publishing.
