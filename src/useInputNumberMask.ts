@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect } from 'react';
-import { cleanInput, formatWithMask, isDigit } from './utils/maskUtils';
+import { cleanInput, formatWithMask, isDigit, applyKeepPositionChange } from './utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
     /**
@@ -55,6 +55,7 @@ export function useInputNumberMask({
     const [value, setValue] = useState(() => formatWithMask('', template, placeholder));
     const [cursor, setCursor] = useState<number | null>(null);
     const ref = useRef<HTMLInputElement>(null);
+    const selectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
 
     useLayoutEffect(() => {
         if (ref.current && cursor !== null) {
@@ -67,7 +68,17 @@ export function useInputNumberMask({
         const input = ref.current;
         if (!input) return;
 
+        const updateSelection = () => {
+            if (input) {
+                selectionRef.current = {
+                    start: input.selectionStart || 0,
+                    end: input.selectionEnd || 0,
+                };
+            }
+        };
+
         const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+            updateSelection();
             const el = e.target as HTMLInputElement;
             const start = el.selectionStart || 0;
             const end = el.selectionEnd || 0;
@@ -219,36 +230,41 @@ export function useInputNumberMask({
             };
 
             if (keepPosition) {
-                // Measure diff against current state `value` (mapped in closure)
-                // NOTE: `value` in this closure is stale if not included in dependency array.
-                // We need strict dependency on `value`.
-                if (inputVal.length > value.length) {
+                const prevStart = selectionRef.current.start;
+                const prevEnd = selectionRef.current.end;
+                const wasSelection = prevStart !== prevEnd;
+                const selectionLength = prevEnd - prevStart;
+                const typedChars = inputVal.length - value.length + selectionLength;
+
+                // Handle single character input (typing one digit)
+                if (typedChars === 1 && rawCursor > 0) {
                     const insertIndex = rawCursor - 1;
                     const char = inputVal[insertIndex];
 
-                    if (!isDigit(char)) {
-                        standardChange();
-                        return;
-                    }
+                    if (isDigit(char)) {
+                        // For selection replacement, use the selection range
+                        // For cursor insertion (no selection), use the cursor position
+                        const startPos = wasSelection ? prevStart : insertIndex;
+                        const endPos = wasSelection ? prevEnd : insertIndex;
 
-                    let targetIndex = insertIndex;
-                    while (targetIndex < template.length) {
-                        if (template[targetIndex] === 'd') {
-                            break;
+                        // Only apply keepPosition if within template bounds
+                        // If cursor is at/beyond template length (e.g., typing at end),
+                        // fall through to standardChange() for normal fill behavior
+                        if (startPos < template.length) {
+                            const result = applyKeepPositionChange(
+                                value,
+                                template,
+                                placeholder,
+                                startPos,
+                                endPos,
+                                char
+                            );
+
+                            setValue(result.value);
+                            setCursor(result.cursor);
+                            return;
                         }
-                        targetIndex++;
                     }
-
-                    if (targetIndex >= template.length) {
-                        standardChange();
-                        return;
-                    }
-
-                    const newValue = value.substring(0, targetIndex) + char + value.substring(targetIndex + 1);
-
-                    setValue(newValue);
-                    setCursor(targetIndex + 1);
-                    return;
                 }
             }
 
@@ -257,10 +273,16 @@ export function useInputNumberMask({
 
         input.addEventListener('keydown', handleKeyDown);
         input.addEventListener('input', handleInput);
+        input.addEventListener('select', updateSelection);
+        input.addEventListener('click', updateSelection);
+        input.addEventListener('keyup', updateSelection);
 
         return () => {
             input.removeEventListener('keydown', handleKeyDown);
             input.removeEventListener('input', handleInput);
+            input.removeEventListener('select', updateSelection);
+            input.removeEventListener('click', updateSelection);
+            input.removeEventListener('keyup', updateSelection);
         };
     }, [value, template, placeholder, keepPosition]); // Re-bind when value changes to have fresh closure
 
