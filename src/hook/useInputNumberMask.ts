@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect } from 'react';
-import { cleanInput, formatWithMask, isDigit, applyKeepPositionChange } from './utils/maskUtils';
+import { cleanInput, formatWithMask, isDigit, applyKeepPositionChange } from '../utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
     /**
@@ -22,6 +22,17 @@ export interface UseInputNumberMaskProps {
      * @default false
      */
     keepPosition?: boolean;
+
+    /**
+     * Callback with the input value.
+     * Triggered only on user interaction.
+     */
+    onValueChange?: (value: string) => void;
+
+    /**
+     * Controlled value. The hook will sync its internal state to this value.
+     */
+    value?: string;
 }
 
 export interface UseInputNumberMaskReturn {
@@ -50,12 +61,33 @@ export function useInputNumberMask({
     template,
     placeholder,
     keepPosition = false,
+    value: controlledValue,
+    onValueChange,
 }: UseInputNumberMaskProps): UseInputNumberMaskReturn {
 
-    const [value, setValue] = useState(() => formatWithMask('', template, placeholder));
+    const [value, setValue] = useState(() => {
+        if (controlledValue !== undefined) {
+            const digits = cleanInput(controlledValue, template);
+            return formatWithMask(digits, template, placeholder);
+        }
+        return formatWithMask('', template, placeholder);
+    });
+
     const [cursor, setCursor] = useState<number | null>(null);
     const ref = useRef<HTMLInputElement>(null);
     const selectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+
+    // Sync internal state to controlled value on every render
+    // This ensures the input reverts when parent doesn't update the controlled value
+    const formattedControlled = controlledValue !== undefined
+        ? formatWithMask(cleanInput(controlledValue, template), template, placeholder)
+        : null;
+
+    useLayoutEffect(() => {
+        if (formattedControlled !== null && formattedControlled !== value) {
+            setValue(formattedControlled);
+        }
+    }); // No dependencies - run on every render to ensure sync
 
     useLayoutEffect(() => {
         if (ref.current && cursor !== null) {
@@ -63,7 +95,6 @@ export function useInputNumberMask({
         }
     }, [cursor, value]);
 
-    // Ref-based Event Handling
     useLayoutEffect(() => {
         const input = ref.current;
         if (!input) return;
@@ -84,6 +115,8 @@ export function useInputNumberMask({
             const end = el.selectionEnd || 0;
             const isSelection = start !== end;
 
+
+
             if (e.key === 'Backspace') {
                 if (start === 0 && !isSelection) return;
                 // We prevent default to handle the state update manually
@@ -102,6 +135,7 @@ export function useInputNumberMask({
                             }
                         }
                         setValue(newVal);
+                        onValueChange?.(newVal);
                         setCursor(start);
                         return;
                     } else {
@@ -110,6 +144,7 @@ export function useInputNumberMask({
                         const newDigits = cleanInput(newValRaw, template);
                         const formatted = formatWithMask(newDigits, template, placeholder);
                         setValue(formatted);
+                        onValueChange?.(formatted);
                         setCursor(start);
                         return;
                     }
@@ -131,6 +166,7 @@ export function useInputNumberMask({
                     const pChar = placeholder && deleteIndex < placeholder.length ? placeholder[deleteIndex] : '_';
                     const newVal = value.substring(0, deleteIndex) + pChar + value.substring(deleteIndex + 1);
                     setValue(newVal);
+                    onValueChange?.(newVal);
                     setCursor(deleteIndex);
                 } else {
                     // Shift behavior
@@ -138,6 +174,7 @@ export function useInputNumberMask({
                     const newDigits = cleanInput(newValRaw, template);
                     const formatted = formatWithMask(newDigits, template, placeholder);
                     setValue(formatted);
+                    onValueChange?.(formatted);
                     setCursor(deleteIndex);
                 }
             } else if (e.key === 'Delete') {
@@ -153,6 +190,7 @@ export function useInputNumberMask({
                             }
                         }
                         setValue(newVal);
+                        onValueChange?.(newVal);
                         setCursor(start);
                         return;
                     } else {
@@ -160,6 +198,7 @@ export function useInputNumberMask({
                         const newDigits = cleanInput(newValRaw, template);
                         const formatted = formatWithMask(newDigits, template, placeholder);
                         setValue(formatted);
+                        onValueChange?.(formatted);
                         setCursor(start);
                         return;
                     }
@@ -182,6 +221,7 @@ export function useInputNumberMask({
                     const pChar = placeholder && deleteIndex < placeholder.length ? placeholder[deleteIndex] : '_';
                     const newVal = value.substring(0, deleteIndex) + pChar + value.substring(deleteIndex + 1);
                     setValue(newVal);
+                    onValueChange?.(newVal);
                     setCursor(start);
                 } else {
                     // Shift behavior
@@ -189,6 +229,7 @@ export function useInputNumberMask({
                     const newDigits = cleanInput(newValRaw, template);
                     const formatted = formatWithMask(newDigits, template, placeholder);
                     setValue(formatted);
+                    onValueChange?.(formatted);
                     setCursor(start);
                 }
             }
@@ -208,7 +249,21 @@ export function useInputNumberMask({
                 const newDigits = cleanInput(inputVal, template);
                 const newFormatted = formatWithMask(newDigits, template, placeholder);
 
+                // If the formatted value didn't change (e.g., non-digit typed), 
+                // restore cursor to previous position directly (can't rely on state 
+                // because setting same value won't trigger effect)
+                if (newFormatted === value) {
+                    const restorePos = selectionRef.current.start;
+                    requestAnimationFrame(() => {
+                        if (input) {
+                            input.setSelectionRange(restorePos, restorePos);
+                        }
+                    });
+                    return;
+                }
+
                 setValue(newFormatted);
+                onValueChange?.(newFormatted);
 
                 let currentDigits = 0;
                 let newCursor = 0;
@@ -261,6 +316,7 @@ export function useInputNumberMask({
                             );
 
                             setValue(result.value);
+                            onValueChange?.(result.value);
                             setCursor(result.cursor);
                             return;
                         }
@@ -275,6 +331,7 @@ export function useInputNumberMask({
         input.addEventListener('input', handleInput);
         input.addEventListener('select', updateSelection);
         input.addEventListener('click', updateSelection);
+        input.addEventListener('mouseup', updateSelection);
         input.addEventListener('keyup', updateSelection);
 
         return () => {
@@ -282,9 +339,10 @@ export function useInputNumberMask({
             input.removeEventListener('input', handleInput);
             input.removeEventListener('select', updateSelection);
             input.removeEventListener('click', updateSelection);
+            input.removeEventListener('mouseup', updateSelection);
             input.removeEventListener('keyup', updateSelection);
         };
-    }, [value, template, placeholder, keepPosition]); // Re-bind when value changes to have fresh closure
+    }, [value, template, placeholder, keepPosition, onValueChange]); // Re-bind when value changes to have fresh closure
 
     const rawValue = cleanInput(value, template);
 
