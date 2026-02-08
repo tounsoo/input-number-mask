@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.0.8
+
+### Patch Changes
+
+- 78010f8: ci: verify release 1.0.8 with explicit tag push step
+
 ## 1.0.7
 
 ### Patch Changes
