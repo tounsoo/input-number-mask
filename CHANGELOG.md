@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.0.5
+
+### Patch Changes
+
+- 73c8f47: docs: fix typos and improvements in README
+
 ## 1.0.4
 
 ### Patch Changes
