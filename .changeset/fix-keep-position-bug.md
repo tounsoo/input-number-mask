@@ -1,5 +1,5 @@
 ---
-"input-number-mask": patch
+"@tounsoo/input-number-mask": patch
 ---
 
 Fix keepPosition bugs in useInputNumberMask
