@@ -54,9 +54,6 @@ jobs:
         with:
           title: 'chore: version packages'
           commit: 'chore: version packages'
+          publish: npm publish --access public --provenance
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Publish to NPM
-        if: steps.changesets.outputs.hasChangesets == 'false'
-        run: npm publish --access public --provenance
+          GITHUB_TOKEN: ${{ secrets.PAT }}
