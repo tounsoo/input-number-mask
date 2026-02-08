@@ -64,9 +64,16 @@ jobs:
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           echo "Debugging OIDC Token Claims..."
-          # Extract token from .npmrc
-          # Format is usually //registry.npmjs.org/:_authToken=ey...
-          TOKEN=$(grep -o 'authToken=.*' .npmrc | cut -d= -f2)
+          # Extract token from the correctly located .npmrc
+          NPMRC_PATH="${NPM_CONFIG_USERCONFIG:-.npmrc}"
+          echo "Reading .npmrc from: $NPMRC_PATH"
+          
+          if [ ! -f "$NPMRC_PATH" ]; then
+             echo "Error: .npmrc not found at $NPMRC_PATH"
+             exit 1
+          fi
+          
+          TOKEN=$(grep -o 'authToken=.*' "$NPMRC_PATH" | cut -d= -f2)
           
           if [ -z "$TOKEN" ]; then
             echo "No token found in .npmrc!"
