@@ -1,4 +1,4 @@
-import type { UseInputNumberMaskProps, UseInputNumberMaskReturn } from '../useInputNumberMask';
+import type { UseInputNumberMaskProps, UseInputNumberMaskReturn } from '../hook/useInputNumberMask';
 
 /**
  * dummy component to expose hook options to Storybook ArgTypes
