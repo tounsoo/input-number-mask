@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.0.6
+
+### Patch Changes
+
+- e85bd4e: docs: fix code block syntax and verify release
+
 ## 1.0.5
 
 ### Patch Changes
