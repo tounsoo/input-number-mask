@@ -109,6 +109,7 @@ export const MyForm = () => {
 To start the development server with Storybook:
 
 ```bash
+pnpm install
 pnpm storybook
 ```
 
