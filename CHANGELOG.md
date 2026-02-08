@@ -1,5 +1,15 @@
 # @tounsoo/input-number-mask
 
+## 1.0.9
+
+### Patch Changes
+
+- c630f53: Fix keepPosition bugs in useInputNumberMask
+
+  - Fixed selection replacement: selecting placeholders and typing now correctly replaces at position without shifting
+  - Fixed matching char: selecting digit+placeholder and typing same digit now advances cursor correctly
+  - Fixed cursor insertion: typing at cursor position (no selection) now replaces placeholder instead of shifting
+
 ## 1.0.8
 
 ### Patch Changes
