@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.0.3
+
+### Patch Changes
+
+- 3643b12: docs: add development instructions to README
+
 ## 1.0.2
 
 ### Patch Changes
