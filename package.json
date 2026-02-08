@@ -1,6 +1,6 @@
 {
   "name": "@tounsoo/input-number-mask",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A lightweight, dependency-free React hook for masking input values. Perfect for phone numbers, dates, credit cards, and more.",
   "packageManager": "pnpm@10.23.0",
   "type": "module",
