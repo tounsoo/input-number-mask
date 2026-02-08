@@ -37,7 +37,7 @@
     "prepublishOnly": "pnpm build:lib",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm build:lib && npm publish --access public --provenance && git push --follow-tags origin main"
+    "release": "pnpm build:lib && changeset publish"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

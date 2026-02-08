@@ -63,3 +63,7 @@ jobs:
           publish: pnpm run release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
+      
+      - name: Push Git Tags
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: git push --follow-tags origin main
