@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.0.4
+
+### Patch Changes
+
+- 4c226c6: ci: test full release workflow automation
+
 ## 1.0.3
 
 ### Patch Changes
