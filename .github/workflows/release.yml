@@ -60,6 +60,6 @@ jobs:
           # This ensures GitHub Releases and Tags are created
           createGithubReleases: true
           setupGitUser: true
-          publish: npm publish --access public --provenance && git push --follow-tags origin main
+          publish: pnpm run release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
