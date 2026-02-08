@@ -4,14 +4,15 @@
 [![npm bundle size](https://img.shields.io/bundlephobia/minzip/@tounsoo/input-number-mask)](https://bundlephobia.com/package/@tounsoo/input-number-mask)
 [![license](https://img.shields.io/npm/l/@tounsoo/input-number-mask)](https://github.com/tounsoo/input-number-mask/blob/main/LICENSE)
 
-A lightweight, dependency-free React hook for masking input values. Perfect for phone numbers, dates, credit cards, and more.
+A lightweight, dependency-free React hook and component for masking input values. Perfect for phone numbers, dates, credit cards, and more.
 
 ## Features
 
 - 0️⃣ **Template-based masking** (e.g., `(ddd) ddd-dddd`)
 - ⌨️ **Intuitive typing & deletion**
 - 📍 **`keepPosition` option** to maintain cursor position and placeholder structure on deletion
-- 🧩 **Headless UI** - completely unstyled, brings your own inputs
+- 🧩 **Headless UI** - completely unstyled, bring your own inputs
+- 🎛️ **Controlled & Uncontrolled** - supports both patterns
 - 📦 **Zero dependencies** (peer dependency on React)
 - 🧪 **Fully tested**
 
@@ -27,7 +28,34 @@ yarn add @tounsoo/input-number-mask
 
 ## Usage
 
-### Basic Example
+### Component (Recommended)
+
+The `InputNumberMask` component is the easiest way to use input masking:
+
+```tsx
+import { InputNumberMask } from '@tounsoo/input-number-mask';
+
+// Uncontrolled
+<InputNumberMask
+  template="(ddd) ddd-dddd"
+  placeholder="(___) ___-____"
+  defaultValue="1234567890"
+  onValueChange={(val) => console.log(val)}
+/>
+
+// Controlled
+const [value, setValue] = useState('');
+<InputNumberMask
+  template="(ddd) ddd-dddd"
+  placeholder="(___) ___-____"
+  value={value}
+  onValueChange={setValue}
+/>
+```
+
+### Hook (For Custom Implementations)
+
+Use the hook directly when you need full control over your input element:
 
 ```tsx
 import { useInputNumberMask } from '@tounsoo/input-number-mask';
@@ -35,72 +63,121 @@ import { useInputNumberMask } from '@tounsoo/input-number-mask';
 const PhoneInput = () => {
   const mask = useInputNumberMask({
     template: '(ddd) ddd-dddd',
-    placeholder: '(___) ___-____'
+    placeholder: '(___) ___-____',
   });
 
   return (
-    <input {...mask} type="tel" />
+    <input
+      ref={mask.ref}
+      value={mask.value}
+      onChange={() => {}} // Required for React controlled inputs
+      type="tel"
+    />
   );
 };
 ```
 
-### Using with `<form>` (Submitting Raw Values)
+### Form Submission
 
-The hook exposes the `rawValue` (unmasked) which you can include in your form submission using a hidden input.
+#### Using Component with `returnRawValue`
+
+The component supports automatic raw value submission via hidden input:
+
+```tsx
+import { InputNumberMask } from '@tounsoo/input-number-mask';
+
+export const MyForm = () => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    // With returnRawValue=true, the hidden input submits raw digits
+    console.log('Phone:', formData.get('phone')); 
+    // Output: "1234567890"
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="phone">Phone Number</label>
+      <InputNumberMask
+        template="(ddd) ddd-dddd"
+        placeholder="(___) ___-____"
+        name="phone"
+        id="phone"
+        returnRawValue={true}
+        required
+      />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
+
+#### Using Hook with Hidden Input
 
 ```tsx
 import { useInputNumberMask } from '@tounsoo/input-number-mask';
 
 export const MyForm = () => {
-    // 1. Initialise the mask
-    const phoneMask = useInputNumberMask({
-        template: '(ddd) ddd-dddd',
-        placeholder: '(___) ___-____'
-    });
+  const phoneMask = useInputNumberMask({
+    template: '(ddd) ddd-dddd',
+    placeholder: '(___) ___-____',
+  });
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        
-        // Access the raw value from the hidden input
-        console.log('Phone (Raw):', formData.get('phone_raw')); 
-        // Output: "1234567890"
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    console.log('Phone:', formData.get('phone')); // "1234567890"
+  };
 
-        // Access the formatted value if needed
-        console.log('Phone (Formatted):', formData.get('phone_display')); 
-        // Output: "(123) 456-7890"
-    };
-
-    return (
-        <form onSubmit={handleSubmit}>
-            <label htmlFor="phone">Phone Number</label>
-            {/* The visible input handles the mask interaction */}
-            <input 
-                {...phoneMask} 
-                name="phone_display" 
-                id="phone" 
-                required 
-            />
-            
-            {/* Hidden input to submit the clean value */}
-            <input 
-                type="hidden" 
-                name="phone_raw" 
-                value={phoneMask.rawValue} 
-            />
-            
-            <button type="submit">Submit</button>
-        </form>
-    );
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="phone">Phone Number</label>
+      <input
+        ref={phoneMask.ref}
+        value={phoneMask.value}
+        onChange={() => {}}
+        id="phone"
+        required
+      />
+      <input type="hidden" name="phone" value={phoneMask.rawValue} />
+      <button type="submit">Submit</button>
+    </form>
+  );
 };
 ```
 
-### Options
+## API
+
+### `InputNumberMask` Component Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `template` | `string` | Required | The mask pattern. `d` represents a digit slot. |
+| `placeholder` | `string` | `undefined` | The display string for empty slots. |
+| `keepPosition` | `boolean` | `false` | If true, deletion replaces with placeholder char instead of shifting. |
+| `value` | `string` | `undefined` | Controlled value. |
+| `defaultValue` | `string` | `undefined` | Initial value for uncontrolled usage. |
+| `onValueChange` | `(value: string) => void` | `undefined` | Called when the value changes. |
+| `returnRawValue` | `boolean` | `false` | If true, `onValueChange` receives raw digits and a hidden input is used for form submission. |
+
+### `useInputNumberMask` Hook Options
 
 | Option | Type | Default | Description |
-|Template|`string`|Required|The mask pattern. `d` represents a digit.|
-|Placeholder|`string`|Required| The display string when input is empty or partial.|
-|keepPosition|`boolean`|`false`| If true, deleting a character replaces it with the placeholder char instead of shifting subsequent characters.|
+|--------|------|---------|-------------|
+| `template` | `string` | Required | The mask pattern. `d` represents a digit slot. |
+| `placeholder` | `string` | `undefined` | The display string for empty slots. |
+| `keepPosition` | `boolean` | `false` | If true, deletion replaces with placeholder char instead of shifting. |
+| `value` | `string` | `undefined` | Controlled value. |
+| `onValueChange` | `(value: string) => void` | `undefined` | Called when the value changes. |
+
+### Hook Return Values
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ref` | `RefObject<HTMLInputElement>` | Attach to your input element. |
+| `value` | `string` | The formatted display value (e.g., "(123) 456-7890"). |
+| `rawValue` | `string` | The unmasked digits only (e.g., "1234567890"). |
 
 ## Contributing
 
@@ -112,7 +189,6 @@ To start the development server with Storybook:
 pnpm install
 pnpm storybook
 ```
-<!-- Trigger release test -->
 
 ### Release Process
 
