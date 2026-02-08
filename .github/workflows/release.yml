@@ -54,6 +54,9 @@ jobs:
         with:
           title: 'chore: version packages'
           commit: 'chore: version packages'
+          # This ensures GitHub Releases and Tags are created
+          createGithubReleases: true
+          setupGitUser: true
           publish: npm publish --access public --provenance
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
