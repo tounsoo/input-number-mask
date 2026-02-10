@@ -1,12 +1,20 @@
 import { Meta, ArgTypes } from '@storybook/addon-docs/blocks';
-import { HookOptions, HookReturn, ComponentProps } from './HookAPI';
+import { 
+  HookOptions, 
+  HookReturn, 
+  ComponentProps,
+  ContentEditableHookOptions,
+  ContentEditableHookReturn,
+  ContentEditableComponentProps
+} from './HookAPI';
 import { InputNumberMask } from '../component/InputNumberMask';
+import { InputNumberMaskContentEditable } from '../component/InputNumberMaskContentEditable';
 
 <Meta title="Getting Started" />
 
 # @tounsoo/input-number-mask
 
-A lightweight, dependency-free React hook and component for masking input values.
+A lightweight, dependency-free React library for masking input values. It provides both standard input masking and advanced `contenteditable` support.
 
 ## Installation
 
@@ -16,125 +24,116 @@ npm install @tounsoo/input-number-mask
 pnpm add @tounsoo/input-number-mask
 ```
 
-## Component Usage
+---
 
-The simplest way to use the library is with the `InputNumberMask` component.
+## 🏗️ Components
+
+Components provide an easy, out-of-the-box solution with built-in styling and accessibility.
+
+### 1. InputNumberMask (Standard)
+
+The primary component for standard text inputs.
 
 ```tsx
 import { InputNumberMask } from '@tounsoo/input-number-mask';
 
-const MyForm = () => {
-  return (
-    <InputNumberMask
-      template="(ddd) ddd-dddd"
-      placeholder="(___) ___-____"
-      onValueChange={(val) => console.log('Value:', val)}
-    />
-  );
-};
+<InputNumberMask
+  template="(ddd) ddd-dddd"
+  placeholder="(___) ___-____"
+  onValueChange={(val) => console.log(val)}
+/>
 ```
 
-### Props
-
+#### Props
 <ArgTypes of={ComponentProps} />
 
-## Hook Usage
+### 2. InputNumberMaskContentEditable (Advanced)
 
-```tsx
-import { useInputNumberMask } from '@tounsoo/input-number-mask';
-
-const PhoneInput = () => {
-  const { ref, value } = useInputNumberMask({
-    template: '(ddd) ddd-dddd',
-    placeholder: '(___) ___-____',
-  });
-
-  return (
-    <input
-      ref={ref}
-      value={value}
-      onChange={() => {}}
-    />
-  );
-};
-```
-
-## Options
-
-<ArgTypes of={HookOptions} />
-
-## Return Values
-
-<ArgTypes of={HookReturn} />
-
-## Examples
-
-### Credit Card
-
-```tsx
-const { ref, value } = useInputNumberMask({
-  template: 'dddd-dddd-dddd-dddd',
-  placeholder: '####-####-####-####',
-});
-```
-
-### Date
-
-```tsx
-const { ref, value } = useInputNumberMask({
-  template: 'dd/dd/dddd',
-  placeholder: 'mm/dd/yyyy',
-});
-```
-
-### Phone with Keep Position
-
-```tsx
-const { ref, value } = useInputNumberMask({
-  template: '+1 (ddd) ddd-dddd',
-  placeholder: '+1 (___) ___-____',
-  keepPosition: true, // Deletion preserves structure
-});
-```
-
-## Form Submission
-
-Use `rawValue` for form submission to get unmasked digits:
-
-```tsx
-const Form = () => {
-  const { ref, value, rawValue } = useInputNumberMask({
-    template: '(ddd) ddd-dddd',
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Raw phone:', rawValue); // "1234567890"
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input ref={ref} value={value} onChange={() => {}} />
-      <input type="hidden" name="phone" value={rawValue} />
-      <button type="submit">Submit</button>
-    </form>
-  );
-};
-```
-
-## InputNumberMaskContentEditable
-
-For advanced masking with `contentEditable` support (useful for specific styling or behavior requirements), use:
+Recommended for rich-text scenarios or when you need the CSS Highlight API for custom placeholder colors.
 
 ```tsx
 import { InputNumberMaskContentEditable } from '@tounsoo/input-number-mask';
 
 <InputNumberMaskContentEditable
-  template="(ddd) ddd-dddd"
-  placeholder="(___) ___-____"
-  placeholderColor="gray" // or any CSS color
+  template="dd/dd/dddd"
+  placeholder="mm/dd/yyyy"
+  placeholderColor="#00ff00"
   onValueChange={(val) => console.log(val)}
 />
 ```
 
-It supports similar props to `InputNumberMask` plus `placeholderColor`.
+#### Props
+<ArgTypes of={ContentEditableComponentProps} />
+
+---
+
+## 🪝 Hooks
+
+Hooks provide low-level access for custom input implementations.
+
+### 1. useInputNumberMask
+
+For standard `HTMLInputElement` elements.
+
+```tsx
+import { useInputNumberMask } from '@tounsoo/input-number-mask';
+
+const { ref, value } = useInputNumberMask({
+  template: '(ddd) ddd-dddd',
+});
+
+return <input ref={ref} value={value} onChange={() => {}} />;
+```
+
+#### Options
+<ArgTypes of={HookOptions} />
+
+#### Return Values
+<ArgTypes of={HookReturn} />
+
+### 2. useContentEditableMask
+
+Specifically designed for `contenteditable` elements.
+
+```tsx
+import { useContentEditableMask } from '@tounsoo/input-number-mask';
+
+const { ref, value } = useContentEditableMask({
+  template: 'dd/dd/dddd',
+});
+
+return <div ref={ref} contentEditable suppressContentEditableWarning />;
+```
+
+#### Options
+<ArgTypes of={ContentEditableHookOptions} />
+
+#### Return Values
+<ArgTypes of={ContentEditableHookReturn} />
+
+---
+
+## 📝 Form Submission
+
+Both components support the `name` prop and `returnRawValue` option for easy integration with native forms.
+
+```tsx
+const Form = () => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const data = new FormData(e.target);
+    console.log('Raw Value:', data.get('phone')); // e.g. "1234567890"
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <InputNumberMask
+        name="phone"
+        template="(ddd) ddd-dddd"
+        returnRawValue={true}
+      />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```

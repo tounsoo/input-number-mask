@@ -4,16 +4,16 @@
 [![npm bundle size](https://img.shields.io/bundlephobia/minzip/@tounsoo/input-number-mask)](https://bundlephobia.com/package/@tounsoo/input-number-mask)
 [![license](https://img.shields.io/npm/l/@tounsoo/input-number-mask)](https://github.com/tounsoo/input-number-mask/blob/main/LICENSE)
 
-A lightweight, dependency-free React hook and component for masking input values. Perfect for phone numbers, dates, credit cards, and more.
+A lightweight, dependency-free React library for masking input values. Supports both standard input elements and `contenteditable` containers.
 
 ## Features
 
 - 0️⃣ **Template-based masking** (e.g., `(ddd) ddd-dddd`)
-- ⌨️ **Intuitive typing & deletion**
-- 📍 **`keepPosition` option** to maintain cursor position and placeholder structure on deletion
-- 🧩 **Headless UI** - completely unstyled, bring your own inputs
-- 🎛️ **Controlled & Uncontrolled** - supports both patterns
-- 📦 **Zero dependencies** (peer dependency on React)
+- 🏗️ **Dual Implementation** - High-level components and low-level hooks
+- ✍️ **`contenteditable` Support** - Native support for rich-text environments
+- 🎨 **Highlight API** - Custom placeholder coloring via `placeholderColor`
+- 📍 **`keepPosition` option** - Maintains cursor position and structure on deletion
+- 📦 **Zero dependencies** - Lightweight and fast
 - 🧪 **Fully tested**
 
 ## Installation
@@ -22,207 +22,96 @@ A lightweight, dependency-free React hook and component for masking input values
 pnpm add @tounsoo/input-number-mask
 # or
 npm install @tounsoo/input-number-mask
-# or
-yarn add @tounsoo/input-number-mask
 ```
 
 ## Usage
 
-### Component (Recommended)
+### 🚀 Components (Recommended)
 
-The `InputNumberMask` component is the easiest way to use input masking:
-
+#### Standard Input
 ```tsx
 import { InputNumberMask } from '@tounsoo/input-number-mask';
 
-// Uncontrolled
 <InputNumberMask
   template="(ddd) ddd-dddd"
   placeholder="(___) ___-____"
-  defaultValue="1234567890"
   onValueChange={(val) => console.log(val)}
 />
+```
 
-// Controlled
-const [value, setValue] = useState('');
-<InputNumberMask
-  template="(ddd) ddd-dddd"
-  placeholder="(___) ___-____"
-  value={value}
-  onValueChange={setValue}
-/>
-
-### ContentEditable Component
-
-For scenarios requiring `contentEditable` behavior (e.g. rich text integration or custom cursor handling):
-
+#### ContentEditable Input
 ```tsx
 import { InputNumberMaskContentEditable } from '@tounsoo/input-number-mask';
 
 <InputNumberMaskContentEditable
-  template="(ddd) ddd-dddd"
-  placeholder="(___) ___-____"
-  placeholderColor="GrayText" 
-  onValueChange={setValue}
+  template="dd/dd/dddd"
+  placeholder="mm/dd/yyyy"
+  placeholderColor="blue"
+  onValueChange={(val) => console.log(val)}
 />
 ```
 
-### Hook (For Custom Implementations)
+### 🪝 Hooks (Advanced)
 
-Use the hook directly when you need full control over your input element:
-
+#### `useInputNumberMask` (for `<input>`)
 ```tsx
-import { useInputNumberMask } from '@tounsoo/input-number-mask';
-
-const PhoneInput = () => {
-  const mask = useInputNumberMask({
-    template: '(ddd) ddd-dddd',
-    placeholder: '(___) ___-____',
-  });
-
-  return (
-    <input
-      ref={mask.ref}
-      value={mask.value}
-      onChange={() => {}} // Required for React controlled inputs
-      type="tel"
-    />
-  );
-};
+const { ref, value } = useInputNumberMask({ template: '(ddd) ddd-dddd' });
+return <input ref={ref} value={value} onChange={() => {}} />;
 ```
 
-### Form Submission
-
-#### Using Component with `returnRawValue`
-
-The component supports automatic raw value submission via hidden input:
-
+#### `useContentEditableMask` (for `<div>`)
 ```tsx
-import { InputNumberMask } from '@tounsoo/input-number-mask';
-
-export const MyForm = () => {
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
-    // With returnRawValue=true, the hidden input submits raw digits
-    console.log('Phone:', formData.get('phone')); 
-    // Output: "1234567890"
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="phone">Phone Number</label>
-      <InputNumberMask
-        template="(ddd) ddd-dddd"
-        placeholder="(___) ___-____"
-        name="phone"
-        id="phone"
-        returnRawValue={true}
-        required
-      />
-      <button type="submit">Submit</button>
-    </form>
-  );
-};
+const { ref, value } = useContentEditableMask({ template: 'dd/dd/dddd' });
+return <div ref={ref} contentEditable suppressContentEditableWarning />;
 ```
 
-#### Using Hook with Hidden Input
+## Form Submission
+
+Use `returnRawValue` to automatically submit unmasked digits via a hidden field:
 
 ```tsx
-import { useInputNumberMask } from '@tounsoo/input-number-mask';
-
-export const MyForm = () => {
-  const phoneMask = useInputNumberMask({
-    template: '(ddd) ddd-dddd',
-    placeholder: '(___) ___-____',
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    console.log('Phone:', formData.get('phone')); // "1234567890"
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="phone">Phone Number</label>
-      <input
-        ref={phoneMask.ref}
-        value={phoneMask.value}
-        onChange={() => {}}
-        id="phone"
-        required
-      />
-      <input type="hidden" name="phone" value={phoneMask.rawValue} />
-      <button type="submit">Submit</button>
-    </form>
-  );
-};
+<form onSubmit={e => {
+  e.preventDefault();
+  const data = new FormData(e.currentTarget);
+  console.log(data.get('phone')); // "1234567890"
+}}>
+  <InputNumberMask
+    name="phone"
+    template="(ddd) ddd-dddd"
+    returnRawValue={true}
+  />
+  <button type="submit">Submit</button>
+</form>
 ```
 
-## API
+## API Reference
 
-### `InputNumberMask` Component Props
+### Component Props
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `template` | `string` | Required | The mask pattern. `d` represents a digit slot. |
-| `placeholder` | `string` | `undefined` | The display string for empty slots. |
-| `keepPosition` | `boolean` | `false` | If true, deletion replaces with placeholder char instead of shifting. |
-| `value` | `string` | `undefined` | Controlled value. |
-| `defaultValue` | `string` | `undefined` | Initial value for uncontrolled usage. |
-| `onValueChange` | `(value: string) => void` | `undefined` | Called when the value changes. |
-| `returnRawValue` | `boolean` | `false` | If true, `onValueChange` receives raw digits and a hidden input is used for form submission. |
-
-### `useInputNumberMask` Hook Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `template` | `string` | Required | The mask pattern. `d` represents a digit slot. |
-| `placeholder` | `string` | `undefined` | The display string for empty slots. |
-| `keepPosition` | `boolean` | `false` | If true, deletion replaces with placeholder char instead of shifting. |
-| `value` | `string` | `undefined` | Controlled value. |
-| `onValueChange` | `(value: string) => void` | `undefined` | Called when the value changes. |
+| `placeholder` | `string` | `undefined` | Display string for empty slots. |
+| `keepPosition` | `boolean` | `false` | If true, deletion replaces with placeholder instead of shifting. |
+| `placeholderColor` | `string` | `undefined` | (ContentEditable only) Color for placeholder characters. |
+| `returnRawValue` | `boolean` | `false` | If true, `onValueChange` and forms receive raw digits. |
+| `onValueChange` | `(val: string) => void` | `undefined` | Callback for value updates. |
 
 ### Hook Return Values
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `ref` | `RefObject<HTMLInputElement>` | Attach to your input element. |
-| `value` | `string` | The formatted display value (e.g., "(123) 456-7890"). |
-| `rawValue` | `string` | The unmasked digits only (e.g., "1234567890"). |
+| Value | Type | Description |
+|-------|------|-------------|
+| `ref` | `RefObject` | Attach to your input/div element. |
+| `value` | `string` | The formatted display value. |
+| `rawValue` | `string` | The unmasked raw digits. |
 
 ## Contributing
 
-### Development
-
-To start the development server with Storybook:
-
 ```bash
 pnpm install
-pnpm storybook
+pnpm storybook # Explore all features and examples
+pnpm test      # Run full test suite
 ```
-
-### Release Process
-
-This project uses [Changesets](https://github.com/changesets/changesets) for version management and publishing.
-
-**When making changes:**
-
-1. Make your code changes
-2. Create a changeset:
-   ```bash
-   pnpm changeset
-   ```
-3. Follow the prompts to describe your changes and select the version bump type (patch/minor/major)
-4. Commit the changeset file along with your changes
-5. Push to main
-
-**Publishing flow:**
-
-- When changesets are merged to main, a "Version Packages" PR is automatically created
-- Merging the Version Packages PR will automatically publish to npm
 
 ## License
 
