@@ -1,7 +1,7 @@
 import type { UseInputNumberMaskProps, UseInputNumberMaskReturn } from '../hook/useInputNumberMask';
 import type { UseContentEditableMaskProps, UseContentEditableMaskReturn } from '../hook/useContentEditableMask';
-import type { InputNumberMaskProps } from '../component/InputNumberMask';
-import type { InputNumberMaskContentEditableProps } from '../component/InputNumberMaskContentEditable';
+import type { InputNumberMaskCoreProps } from '../component/InputNumberMask';
+import type { InputNumberMaskContentEditableCoreProps } from '../component/InputNumberMaskContentEditable';
 
 /**
  * dummy components to expose hook options to Storybook ArgTypes
@@ -15,5 +15,5 @@ export const ContentEditableHookReturn = (_props: UseContentEditableMaskReturn) 
 /**
  * dummy components to expose component props to Storybook ArgTypes
  */
-export const ComponentProps = (_props: InputNumberMaskProps) => { void _props; return null; };
-export const ContentEditableComponentProps = (_props: InputNumberMaskContentEditableProps) => { void _props; return null; };
+export const ComponentProps = (_props: InputNumberMaskCoreProps) => { void _props; return null; };
+export const ContentEditableComponentProps = (_props: InputNumberMaskContentEditableCoreProps) => { void _props; return null; };

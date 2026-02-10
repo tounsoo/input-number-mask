@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateMaskState } from './maskUtils';
+import { calculateMaskState } from '../maskUtils';
 
 describe('calculateMaskState', () => {
     const template = '(ddd) ddd-dddd';

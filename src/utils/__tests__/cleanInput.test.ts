@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanInput } from './maskUtils';
+import { cleanInput } from '../maskUtils';
 
 describe('cleanInput', () => {
     describe('basic extraction', () => {

@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
-import { InputNumberMask } from './InputNumberMask';
+import { InputNumberMask } from '../InputNumberMask';
 
 // Regression tests for keepPosition behavior
 describe('InputNumberMask KeepPosition', () => {
@@ -77,3 +77,54 @@ describe('InputNumberMask KeepPosition', () => {
         expect(input.selectionStart).toBe(4);
     });
 });
+
+it('handles selection replacement in keepPosition mode', async () => {
+    const user = userEvent.setup();
+    render(
+        <InputNumberMask
+            template="dd/dd/dddd"
+            placeholder="mm/dd/yyyy"
+            keepPosition={true}
+        />
+    );
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+
+    await user.type(input, '12252024');
+    expect(input).toHaveValue('12/25/2024');
+
+    // Select '25' and type '3'
+    // "12/25/2024"
+    input.setSelectionRange(3, 5);
+    input.focus();
+    // fireEvent.select(input); // Ensure selection is registered if needed
+    await user.keyboard('3');
+
+    // keepPosition:
+    // Range 3-5 ("25") is replaced.
+    // Logic: 
+    // 1. Clear range to placeholder -> "12/dd/2024" (using 'd' from 'mm/dd/yyyy' at those positions? Wait, placeholder is "mm/dd/yyyy".
+    // Indices 3,4 correspond to 'd','d' in placeholder.
+    // So "12/dd/2024".
+    // 2. Insert '3' at start of range (3). -> "12/3d/2024".
+    expect(input).toHaveValue('12/3d/2024');
+});
+
+it('handles paste with keepPosition (falls back to standard shift)', async () => {
+    const user = userEvent.setup();
+    render(<InputNumberMask template="dd-dd" keepPosition={true} />);
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+
+    await user.type(input, '1234');
+    expect(input).toHaveValue('12-34');
+
+    // Select all and paste "56"
+    input.setSelectionRange(0, 5);
+    input.focus();
+    await user.paste('56');
+
+    // Pasting "56" over "12-34".
+    // Should behave like standard replacement if it mimics "typing" or if paste is handled separately?
+    // If handled as standard paste, it cleans "56" -> "56". Formats -> "56-".
+    expect(input).toHaveValue('56-');
+});
+

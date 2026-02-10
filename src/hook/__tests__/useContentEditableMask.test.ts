@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { useContentEditableMask } from './useContentEditableMask';
+import { useContentEditableMask } from '../useContentEditableMask';
 
 // Mock window.getSelection and Range for hook internals
 // The hook uses cleanInput/formatWithMask which are pure, but it also uses layout effects that might access DOM.
