@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect } from 'react';
-import { cleanInput, formatWithMask, isDigit, applyKeepPositionChange } from '../utils/maskUtils';
+import { cleanInput, formatWithMask, isDigit, applyKeepPositionChange, isMatchWithMask } from '../utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
     /**
@@ -80,14 +80,14 @@ export function useInputNumberMask({
     // Sync internal state to controlled value on every render
     // This ensures the input reverts when parent doesn't update the controlled value
     const formattedControlled = controlledValue !== undefined
-        ? formatWithMask(cleanInput(controlledValue, template), template, placeholder)
+        ? (keepPosition && isMatchWithMask(controlledValue, template, placeholder)
+            ? controlledValue
+            : formatWithMask(cleanInput(controlledValue, template), template, placeholder))
         : null;
 
-    useLayoutEffect(() => {
-        if (formattedControlled !== null && formattedControlled !== value) {
-            setValue(formattedControlled);
-        }
-    }); // No dependencies - run on every render to ensure sync
+    if (formattedControlled !== null && formattedControlled !== value) {
+        setValue(formattedControlled);
+    }
 
     useLayoutEffect(() => {
         if (ref.current && cursor !== null) {
