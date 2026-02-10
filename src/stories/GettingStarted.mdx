@@ -121,3 +121,20 @@ const Form = () => {
   );
 };
 ```
+
+## InputNumberMaskContentEditable
+
+For advanced masking with `contentEditable` support (useful for specific styling or behavior requirements), use:
+
+```tsx
+import { InputNumberMaskContentEditable } from '@tounsoo/input-number-mask';
+
+<InputNumberMaskContentEditable
+  template="(ddd) ddd-dddd"
+  placeholder="(___) ___-____"
+  placeholderColor="gray" // or any CSS color
+  onValueChange={(val) => console.log(val)}
+/>
+```
+
+It supports similar props to `InputNumberMask` plus `placeholderColor`.

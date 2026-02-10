@@ -50,6 +50,7 @@ describe('InputNumberMask KeepPosition', () => {
         // Expect 'm' to be replaced by '9'
         // '59/12/2024'
         expect(input).toHaveValue('59/12/2024');
+        expect(input.selectionStart).toBe(2);
     });
 
     it('handles typing in the middle without shifting subsequent digits', async () => {

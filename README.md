@@ -51,6 +51,20 @@ const [value, setValue] = useState('');
   value={value}
   onValueChange={setValue}
 />
+
+### ContentEditable Component
+
+For scenarios requiring `contentEditable` behavior (e.g. rich text integration or custom cursor handling):
+
+```tsx
+import { InputNumberMaskContentEditable } from '@tounsoo/input-number-mask';
+
+<InputNumberMaskContentEditable
+  template="(ddd) ddd-dddd"
+  placeholder="(___) ___-____"
+  placeholderColor="GrayText" 
+  onValueChange={setValue}
+/>
 ```
 
 ### Hook (For Custom Implementations)

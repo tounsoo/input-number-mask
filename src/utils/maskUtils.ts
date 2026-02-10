@@ -187,3 +187,140 @@ export const isMatchWithMask = (value: string, template: string, placeholder?: s
     }
     return true;
 };
+
+// New shared utility
+export const calculateMaskState = (
+    currentValue: string,
+    template: string,
+    placeholder: string | undefined, // undefined implies default placeholder behavior logic where needed, though standard formatter handles it
+    start: number,
+    end: number,
+    inputType: 'insert' | 'deleteBackward' | 'deleteForward',
+    char: string = '',
+    keepPosition: boolean = false
+): { value: string, cursor: number } | null => {
+
+    const isSelection = start !== end;
+
+    if (inputType === 'insert') {
+        if (keepPosition) {
+            // Handle single char typing. what if char length > 1 (paste)?
+            // applyKeepPositionChange logic mostly handles single char or replacement.
+            // If pasted string is multiple chars, standard input usually handles it by shifting.
+            // But keepPosition is specific.
+            // For now assume single char for keeps. If longer, maybe fall back to standard?
+            if (char.length === 1 && start < template.length) {
+                return applyKeepPositionChange(currentValue, template, placeholder, start, end, char);
+            }
+        }
+
+        // Standard insertion
+        let newValRaw = currentValue;
+        if (isSelection) {
+            newValRaw = currentValue.slice(0, start) + char + currentValue.slice(end);
+        } else {
+            newValRaw = currentValue.slice(0, start) + char + currentValue.slice(start);
+        }
+
+        const newDigits = cleanInput(newValRaw, template);
+        const formatted = formatWithMask(newDigits, template, placeholder);
+
+        // Calculate cursor
+        let currentDigits = 0;
+        const beforeCursorRaw = newValRaw.slice(0, start + char.length);
+        const digitsBeforeCursor = cleanInput(beforeCursorRaw, template).length;
+
+        let newCursor = 0;
+        for (let i = 0; i < formatted.length; i++) {
+            if (currentDigits >= digitsBeforeCursor) break;
+            if (isDigit(formatted[i]) && template[i] === 'd') {
+                currentDigits++;
+            }
+            newCursor++;
+        }
+        while (newCursor < formatted.length && template[newCursor] !== 'd') {
+            newCursor++;
+        }
+
+        return { value: formatted, cursor: newCursor };
+    }
+
+    if (inputType === 'deleteBackward') {
+        if (start === 0 && !isSelection) return null; // No change
+
+        if (isSelection) {
+            if (keepPosition) {
+                const res = applyKeepPositionChange(currentValue, template, placeholder, start, end, '');
+                return res;
+            } else {
+                const newValRaw = currentValue.slice(0, start) + currentValue.slice(end);
+                const newDigits = cleanInput(newValRaw, template);
+                const formatted = formatWithMask(newDigits, template, placeholder);
+                return { value: formatted, cursor: start };
+            }
+        }
+
+        // Single char backspace
+        let deleteIndex = start - 1;
+        while (deleteIndex >= 0) {
+            const isTemplateLiteral = template[deleteIndex] !== 'd';
+            if (isTemplateLiteral) {
+                deleteIndex--;
+            } else {
+                break;
+            }
+        }
+
+        if (deleteIndex < 0) return null;
+
+        if (keepPosition) {
+            const pChar = placeholder && deleteIndex < placeholder.length ? placeholder[deleteIndex] : '_';
+            const newVal = currentValue.substring(0, deleteIndex) + pChar + currentValue.substring(deleteIndex + 1);
+            return { value: newVal, cursor: deleteIndex };
+        } else {
+            const newValRaw = currentValue.slice(0, deleteIndex) + currentValue.slice(deleteIndex + 1);
+            const newDigits = cleanInput(newValRaw, template);
+            const formatted = formatWithMask(newDigits, template, placeholder);
+            return { value: formatted, cursor: deleteIndex };
+        }
+    }
+
+    if (inputType === 'deleteForward') {
+        if (isSelection) {
+            if (keepPosition) {
+                const res = applyKeepPositionChange(currentValue, template, placeholder, start, end, '');
+                return res;
+            } else {
+                const newValRaw = currentValue.slice(0, start) + currentValue.slice(end);
+                const newDigits = cleanInput(newValRaw, template);
+                const formatted = formatWithMask(newDigits, template, placeholder);
+                return { value: formatted, cursor: start };
+            }
+        }
+
+        let deleteIndex = start;
+        while (deleteIndex < template.length) {
+            const isTemplateLiteral = template[deleteIndex] !== 'd';
+            if (isTemplateLiteral) {
+                deleteIndex++;
+            } else {
+                break;
+            }
+        }
+
+        if (deleteIndex >= currentValue.length) return null;
+
+        if (keepPosition) {
+            const pChar = placeholder && deleteIndex < placeholder.length ? placeholder[deleteIndex] : '_';
+            const newVal = currentValue.substring(0, deleteIndex) + pChar + currentValue.substring(deleteIndex + 1);
+            return { value: newVal, cursor: start };
+        } else {
+            const newValRaw = currentValue.slice(0, deleteIndex) + currentValue.slice(deleteIndex + 1);
+            const newDigits = cleanInput(newValRaw, template);
+            const formatted = formatWithMask(newDigits, template, placeholder);
+            return { value: formatted, cursor: start };
+        }
+    }
+
+    return null;
+}

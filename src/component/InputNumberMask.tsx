@@ -1,6 +1,24 @@
 import React, { forwardRef, useEffect, useState } from 'react';
 import { useInputNumberMask } from '../hook/useInputNumberMask';
 import { cleanInput, formatWithMask } from '../utils/maskUtils';
+import tokens from './styles.json';
+
+// Hoisted: static base styles computed once at module level
+const t = tokens.input;
+const baseStyles = `
+    .input-number-mask {
+        font-family: ${t.fontFamily.$value};
+        padding: ${t.padding.block.$value} ${t.padding.inline.$value};
+        border: ${t.border.width.$value} ${t.border.style.$value} ${t.border.color.$value};
+        border-radius: ${t.border.radius.$value};
+        outline: none;
+        cursor: text;
+    }
+    .input-number-mask:focus {
+        border-color: ${t.focus.borderColor.$value};
+        box-shadow: 0 0 0 ${t.focus.ringWidth.$value} ${t.focus.ringColor.$value};
+    }
+`;
 
 export interface InputNumberMaskProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue'> {
     /**
@@ -104,8 +122,10 @@ export const InputNumberMask = forwardRef<HTMLInputElement, InputNumberMaskProps
 
         return (
             <>
+                <style>{baseStyles}</style>
                 <input
                     {...props}
+                    className={`input-number-mask ${props.className || ''}`}
                     name={visibleInputName}
                     ref={maskRef}
                     value={maskValue}

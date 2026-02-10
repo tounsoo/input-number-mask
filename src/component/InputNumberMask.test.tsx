@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { InputNumberMask } from './InputNumberMask';
+import { typeAndCheckCursor } from '../testUtils';
 
 // Wrapper for controlled test
 const ControlledInput = ({ template, returnRawValue = false }: { template: string, returnRawValue?: boolean }) => {
@@ -35,27 +36,52 @@ describe('InputNumberMask Component', () => {
         it('updates value on user input', async () => {
             const user = userEvent.setup();
             render(<InputNumberMask template="dd-dd" />);
-            const input = screen.getByRole('textbox');
+            const input = screen.getByRole('textbox') as HTMLInputElement;
 
-            await user.type(input, '12');
+            // '1' -> "1" (cursor 1)
+            // '2' -> "12-" (cursor 3)
+            await typeAndCheckCursor(user, input, '12', [1, 3]);
             expect(input).toHaveValue('12-');
 
-            await user.type(input, '34');
+            // '3' -> "12-3" (cursor 4)
+            // '4' -> "12-34" (cursor 5)
+            await typeAndCheckCursor(user, input, '34', [4, 5]);
             expect(input).toHaveValue('12-34');
+        });
+
+        it('handles backspace correctly', async () => {
+            const user = userEvent.setup();
+            render(<InputNumberMask template="dd-dd" />);
+            const input = screen.getByRole('textbox') as HTMLInputElement;
+
+            await typeAndCheckCursor(user, input, '1234', [1, 3, 4, 5]);
+            expect(input).toHaveValue('12-34');
+
+            await user.keyboard('{Backspace}');
+            expect(input).toHaveValue('12-3');
+            expect(input.selectionStart).toBe(4);
+
+            await user.keyboard('{Backspace}');
+            expect(input).toHaveValue('12-');
+            expect(input.selectionStart).toBe(3);
+
+            // Should skip separator
+            await user.keyboard('{Backspace}');
+            expect(input).toHaveValue('1');
+            expect(input.selectionStart).toBe(1);
         });
 
         it('calls onValueChange with formatted value', async () => {
             const handleChange = vi.fn();
             const user = userEvent.setup();
             render(<InputNumberMask template="dd-dd" onValueChange={handleChange} />);
-            const input = screen.getByRole('textbox');
+            const input = screen.getByRole('textbox') as HTMLInputElement;
 
-            await user.type(input, '1');
-            // "1-" partial? No, standard formatting breaks early if no digits left for template
-            // So "1" -> "1"
+            await typeAndCheckCursor(user, input, '1', [1]);
+            // "1" -> "1"
             expect(handleChange).toHaveBeenCalledWith('1');
 
-            await user.type(input, '2');
+            await typeAndCheckCursor(user, input, '2', [3]);
             // "12-"
             expect(handleChange).toHaveBeenCalledWith('12-');
         });
@@ -64,13 +90,13 @@ describe('InputNumberMask Component', () => {
             const handleChange = vi.fn();
             const user = userEvent.setup();
             render(<InputNumberMask template="dd-dd" returnRawValue={true} onValueChange={handleChange} />);
-            const input = screen.getByRole('textbox');
+            const input = screen.getByRole('textbox') as HTMLInputElement;
 
-            await user.type(input, '1');
+            await typeAndCheckCursor(user, input, '1', [1]);
             // Value "1-", raw "1"
             expect(handleChange).toHaveBeenCalledWith('1');
 
-            await user.type(input, '2');
+            await typeAndCheckCursor(user, input, '2', [3]);
             // Value "12-", raw "12"
             expect(handleChange).toHaveBeenCalledWith('12');
         });
