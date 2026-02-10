@@ -1,5 +1,39 @@
 # @tounsoo/input-number-mask
 
+## 1.2.0
+
+### Minor Changes
+
+- 4ed2248: ### New Features
+
+  - Introduced `InputNumberMaskContentEditable` component and `useContentEditableMask` hook for masking support in `contenteditable` elements.
+  - Added `placeholderColor` prop to allow custom styling of placeholder characters using the CSS Highlight API.
+
+  ### Refactoring
+
+  - Extracted core masking state logic into a shared `calculateMaskState` utility in `maskUtils.ts` to unify behavior between standard inputs and contenteditable elements.
+
+  ### Improvements & Fixes
+
+  - Updated `useInputNumberMask` to properly handle dependency changes and ensure `onValueChange` is called with correct values.
+  - Adjusted style tokens for border-radius and padding to improve visual consistency.
+  - Added JSDOM polyfill for `innerText` to support unit testing of contenteditable components.
+  - Expanded documentation with examples for the new contenteditable implementation.
+
+- 055f6bb: ### New Features
+
+  - **InputNumberMask**: Added `returnRawValue` prop. When true, renders a hidden input with the unmasked value. This is useful for form submissions where the raw number is needed.
+
+  ### Improvements
+
+  - **useInputNumberMask**: Enhanced cursor positioning logic to be more reliable when typing or deleting.
+  - **InputNumberMask**: Fixed ref forwarding to ensure it works correctly with both function and object refs.
+
+  ### Internal
+
+  - **Refactor**: Reorganized test files into `__tests__` directories for better project structure.
+  - **Cleanup**: Removed redundant and legacy test files.
+
 ## 1.1.1
 
 ### Patch Changes
