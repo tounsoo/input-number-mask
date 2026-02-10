@@ -1,11 +1,11 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useInputNumberMask, type UseInputNumberMaskProps } from '../hook/useInputNumberMask';
 import { useState } from 'react';
 
 // Wrapper component to demonstrate hook usage
 const HookDemo = (props: UseInputNumberMaskProps & { label?: string }) => {
     const { label = 'Input', ...hookProps } = props;
-    const mask = useInputNumberMask(hookProps);
+    const { ref, value, rawValue } = useInputNumberMask(hookProps);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -14,8 +14,8 @@ const HookDemo = (props: UseInputNumberMaskProps & { label?: string }) => {
             </label>
             <input
                 id="hook-demo-input"
-                ref={mask.ref}
-                value={mask.value}
+                ref={ref}
+                value={value}
                 onChange={() => { }} // Hook handles input via ref
                 style={{
                     padding: '8px 12px',
@@ -26,10 +26,10 @@ const HookDemo = (props: UseInputNumberMaskProps & { label?: string }) => {
                 }}
             />
             <div style={{ fontSize: '12px', color: '#666' }}>
-                <strong>Display Value:</strong> {mask.value}
+                <strong>Display Value:</strong> {value}
             </div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-                <strong>Raw Value:</strong> {mask.rawValue}
+                <strong>Raw Value:</strong> {rawValue}
             </div>
         </div>
     );
@@ -174,7 +174,7 @@ export const KeepPositionMode: Story = {
 
 const ExternalStateDemo = () => {
     const [value, setValue] = useState('');
-    const mask = useInputNumberMask({
+    const { ref, value: maskValue, rawValue } = useInputNumberMask({
         template: '(ddd) ddd-dddd',
         placeholder: '(___) ___-____',
         value,
@@ -189,8 +189,8 @@ const ExternalStateDemo = () => {
                 </label>
                 <input
                     id="external-state-input"
-                    ref={mask.ref}
-                    value={mask.value}
+                    ref={ref}
+                    value={maskValue}
                     onChange={() => { }}
                     style={{
                         padding: '8px 12px',
@@ -205,10 +205,10 @@ const ExternalStateDemo = () => {
                 <strong>Parent State:</strong> {value}
             </div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-                <strong>Display Value:</strong> {mask.value}
+                <strong>Display Value:</strong> {maskValue}
             </div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-                <strong>Raw Value:</strong> {mask.rawValue}
+                <strong>Raw Value:</strong> {rawValue}
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => setValue('')}>Clear</button>
@@ -232,7 +232,7 @@ export const WithExternalState: Story = {
 // --- Custom Styling Example ---
 
 const CustomStyledDemo = () => {
-    const mask = useInputNumberMask({
+    const { ref, value, rawValue } = useInputNumberMask({
         template: 'dddd-dddd-dddd-dddd',
         placeholder: '____-____-____-____',
     });
@@ -256,8 +256,8 @@ const CustomStyledDemo = () => {
             </label>
             <input
                 id="styled-input"
-                ref={mask.ref}
-                value={mask.value}
+                ref={ref}
+                value={value}
                 onChange={() => { }}
                 placeholder="Enter card number"
                 style={{
@@ -273,7 +273,7 @@ const CustomStyledDemo = () => {
                 }}
             />
             <div style={{ marginTop: '12px', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
-                Raw: {mask.rawValue || '(empty)'}
+                Raw: {rawValue || '(empty)'}
             </div>
         </div>
     );
@@ -295,7 +295,7 @@ export const CustomStyling: Story = {
 const CallbackDemo = () => {
     const [logs, setLogs] = useState<string[]>([]);
 
-    const mask = useInputNumberMask({
+    const { ref, value } = useInputNumberMask({
         template: 'dd:dd',
         placeholder: '--:--',
         onValueChange: (val) => {
@@ -311,8 +311,8 @@ const CallbackDemo = () => {
                 </label>
                 <input
                     id="callback-input"
-                    ref={mask.ref}
-                    value={mask.value}
+                    ref={ref}
+                    value={value}
                     onChange={() => { }}
                     style={{
                         padding: '8px 12px',

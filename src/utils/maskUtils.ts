@@ -160,3 +160,30 @@ export const applyKeepPositionChange = (
 
     return { value: newValue, cursor: newCursor };
 };
+
+export const isMatchWithMask = (value: string, template: string, placeholder?: string): boolean => {
+    if (value.length !== template.length) return false;
+
+    for (let i = 0; i < template.length; i++) {
+        const char = value[i];
+        const tChar = template[i];
+        const pChar = placeholder && i < placeholder.length ? placeholder[i] : undefined;
+
+        if (tChar === 'd') {
+            // Must be a digit OR a placeholder char (if exists) OR '_' (if no custom placeholder)
+            // Actually, existing implementation uses '_' as default placeholder in applyKeepPositionChange
+            const isDigitChar = isDigit(char);
+            const isPlaceholder = char === (pChar || '_');
+
+            if (!isDigitChar && !isPlaceholder) {
+                return false;
+            }
+        } else {
+            // Literal must match
+            if (char !== tChar) {
+                return false;
+            }
+        }
+    }
+    return true;
+};

@@ -53,4 +53,41 @@ describe('useInputNumberMask', () => {
             expect(result.current.value).toBe('12-dd');
         });
     });
+
+    describe('KeepPosition', () => {
+        it('preserves position when controlled value matches mask pattern (no re-format)', () => {
+            const { result, rerender } = renderHook(
+                ({ value }) => useInputNumberMask({
+                    template: 'dd/dd/dddd',
+                    placeholder: 'mm/mm/yyyy',
+                    keepPosition: true,
+                    value
+                }),
+                { initialProps: { value: '12/12/2024' } }
+            );
+
+            expect(result.current.value).toBe('12/12/2024');
+
+            // Simulate user deleting a digit (resulting in a placeholder)
+            // The component would see the change and pass the new value prop
+            rerender({ value: '12/1m/2024' });
+
+            // Should NOT be re-formatted to '12/12/024m' or similar shift
+            expect(result.current.value).toBe('12/1m/2024');
+        });
+
+        it('re-formats normally if value does not match mask pattern', () => {
+            // This handles cases where maybe the parent passed a raw value or something unexpected
+            const { result } = renderHook(() =>
+                useInputNumberMask({
+                    template: 'dd-dd',
+                    placeholder: 'xx-xx',
+                    keepPosition: true,
+                    value: '1234' // Raw digits
+                })
+            );
+            // Should format to '12-34'
+            expect(result.current.value).toBe('12-34');
+        });
+    });
 });

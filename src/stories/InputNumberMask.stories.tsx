@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { InputNumberMask } from '../component/InputNumberMask';
 import { userEvent, within, expect, fn } from 'storybook/test';
 import React, { useState } from 'react';
@@ -65,7 +65,7 @@ export const DateFormat: Story = {
 export const CreditCard: Story = {
     args: {
         template: 'dddd dddd dddd dddd',
-        placeholder: '0000 0000 0000 0000',
+        placeholder: 'xxxx xxxx xxxx xxxx',
         'aria-label': 'Credit Card',
     },
     play: async ({ canvasElement }) => {
@@ -228,7 +228,7 @@ export const NativeFormSubmission: Story = {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
                 const data = Object.fromEntries(formData.entries());
-                (args.onValueChange as any)?.(data); // Using onValueChange to capture submit result for test
+                (args.onValueChange)?.(data as unknown as string); // Using onValueChange to capture submit result for test
             }}
             style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: 300 }}
         >
@@ -256,7 +256,7 @@ export const NativeFormSubmission: Story = {
         // Expect the form data to contain the RAW value because returnRawValue=true
         // The visible input has the masked value, but the hidden input acts as the submitted value
         if (args.onValueChange) {
-            expect(args.onValueChange as any).toHaveBeenCalledWith(
+            expect(args.onValueChange).toHaveBeenCalledWith(
                 expect.objectContaining({
                     phone: '9876543210'
                 })

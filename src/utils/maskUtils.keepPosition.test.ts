@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyKeepPositionChange } from './maskUtils';
+import { applyKeepPositionChange, isMatchWithMask } from './maskUtils';
 
 describe('applyKeepPositionChange', () => {
     const template = 'dd/dd/dddd';
@@ -123,6 +123,24 @@ describe('applyKeepPositionChange', () => {
             const result = applyKeepPositionChange('12/15/2024', template, placeholder, 10, 10, '5');
             expect(result.value).toBe('12/15/2024');
             expect(result.cursor).toBe(10);
+        });
+    });
+
+    describe('integration with isMatchWithMask', () => {
+        // Ensures that the output of applyKeepPositionChange is always considered a valid "match"
+        // by the validation logic used in the hook. If this fails, the hook would accidentally 
+        // re-format the valid keepPosition value, causing the bug.
+
+        it('should produce a value that passes isMatchWithMask', () => {
+            // "12/15/2024" -> delete '5' -> "12/1m/2024"
+            const result = applyKeepPositionChange('12/15/2024', template, placeholder, 4, 5, '');
+            expect(isMatchWithMask(result.value, template, placeholder)).toBe(true);
+        });
+
+        it('should pass with underscores if no placeholder provided', () => {
+            const result = applyKeepPositionChange('12/15/2024', template, undefined, 4, 5, '');
+            // "12/1_/2024"
+            expect(isMatchWithMask(result.value, template, undefined)).toBe(true);
         });
     });
 });

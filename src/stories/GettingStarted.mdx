@@ -1,11 +1,12 @@
 import { Meta, ArgTypes } from '@storybook/addon-docs/blocks';
-import { HookOptions, HookReturn } from './HookAPI';
+import { HookOptions, HookReturn, ComponentProps } from './HookAPI';
+import { InputNumberMask } from '../component/InputNumberMask';
 
 <Meta title="Getting Started" />
 
 # @tounsoo/input-number-mask
 
-A lightweight, dependency-free React hook for masking input values.
+A lightweight, dependency-free React hook and component for masking input values.
 
 ## Installation
 
@@ -15,21 +16,43 @@ npm install @tounsoo/input-number-mask
 pnpm add @tounsoo/input-number-mask
 ```
 
-## Basic Usage
+## Component Usage
+
+The simplest way to use the library is with the `InputNumberMask` component.
+
+```tsx
+import { InputNumberMask } from '@tounsoo/input-number-mask';
+
+const MyForm = () => {
+  return (
+    <InputNumberMask
+      template="(ddd) ddd-dddd"
+      placeholder="(___) ___-____"
+      onValueChange={(val) => console.log('Value:', val)}
+    />
+  );
+};
+```
+
+### Props
+
+<ArgTypes of={ComponentProps} />
+
+## Hook Usage
 
 ```tsx
 import { useInputNumberMask } from '@tounsoo/input-number-mask';
 
 const PhoneInput = () => {
-  const mask = useInputNumberMask({
+  const { ref, value } = useInputNumberMask({
     template: '(ddd) ddd-dddd',
     placeholder: '(___) ___-____',
   });
 
   return (
     <input
-      ref={mask.ref}
-      value={mask.value}
+      ref={ref}
+      value={value}
       onChange={() => {}}
     />
   );
@@ -49,7 +72,7 @@ const PhoneInput = () => {
 ### Credit Card
 
 ```tsx
-const mask = useInputNumberMask({
+const { ref, value } = useInputNumberMask({
   template: 'dddd-dddd-dddd-dddd',
   placeholder: '####-####-####-####',
 });
@@ -58,7 +81,7 @@ const mask = useInputNumberMask({
 ### Date
 
 ```tsx
-const mask = useInputNumberMask({
+const { ref, value } = useInputNumberMask({
   template: 'dd/dd/dddd',
   placeholder: 'mm/dd/yyyy',
 });
@@ -67,7 +90,7 @@ const mask = useInputNumberMask({
 ### Phone with Keep Position
 
 ```tsx
-const mask = useInputNumberMask({
+const { ref, value } = useInputNumberMask({
   template: '+1 (ddd) ddd-dddd',
   placeholder: '+1 (___) ___-____',
   keepPosition: true, // Deletion preserves structure
@@ -80,19 +103,19 @@ Use `rawValue` for form submission to get unmasked digits:
 
 ```tsx
 const Form = () => {
-  const phoneMask = useInputNumberMask({
+  const { ref, value, rawValue } = useInputNumberMask({
     template: '(ddd) ddd-dddd',
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Raw phone:', phoneMask.rawValue); // "1234567890"
+    console.log('Raw phone:', rawValue); // "1234567890"
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      <input ref={phoneMask.ref} value={phoneMask.value} onChange={() => {}} />
-      <input type="hidden" name="phone" value={phoneMask.rawValue} />
+      <input ref={ref} value={value} onChange={() => {}} />
+      <input type="hidden" name="phone" value={rawValue} />
       <button type="submit">Submit</button>
     </form>
   );

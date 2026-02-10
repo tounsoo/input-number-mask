@@ -75,7 +75,7 @@ export const InputNumberMask = forwardRef<HTMLInputElement, InputNumberMaskProps
         // The value to pass to the hook - controlled or internal
         const valueForHook = isControlled ? controlledValue : internalValue;
 
-        const mask = useInputNumberMask({
+        const { ref: maskRef, value: maskValue } = useInputNumberMask({
             template,
             placeholder,
             keepPosition,
@@ -93,13 +93,13 @@ export const InputNumberMask = forwardRef<HTMLInputElement, InputNumberMaskProps
         // Sync external ref if provided
         useEffect(() => {
             if (typeof ref === 'function') {
-                ref(mask.ref.current);
+                ref(maskRef.current);
             } else if (ref) {
-                ref.current = mask.ref.current;
+                ref.current = maskRef.current;
             }
-        }, [mask.ref, ref]);
+        }, [maskRef, ref]);
 
-        const rawValue = cleanInput(mask.value, template);
+        const rawValue = cleanInput(maskValue, template);
         const visibleInputName = returnRawValue && props.name ? undefined : props.name;
 
         return (
@@ -107,8 +107,8 @@ export const InputNumberMask = forwardRef<HTMLInputElement, InputNumberMaskProps
                 <input
                     {...props}
                     name={visibleInputName}
-                    ref={mask.ref}
-                    value={mask.value}
+                    ref={maskRef}
+                    value={maskValue}
                     onChange={(e) => {
                         onChange?.(e);
                     }}
