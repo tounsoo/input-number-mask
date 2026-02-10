@@ -110,6 +110,16 @@ export const InputNumberMaskContentEditable = forwardRef<HTMLDivElement, InputNu
         // The value to pass to the hook - controlled or internal
         const valueForHook = isControlled ? controlledValue : internalValue;
 
+        // Re-format internal value if template/placeholder changes (dynamic templates)
+        useEffect(() => {
+            if (!isControlled) {
+                setInternalValue(prev => {
+                    const digits = cleanInput(prev, template);
+                    return formatWithMask(digits, template, placeholder);
+                });
+            }
+        }, [template, placeholder, isControlled]);
+
         const { ref: maskRef, value: maskValue, rawValue: hookRawValue } = useContentEditableMask({
             template,
             placeholder,

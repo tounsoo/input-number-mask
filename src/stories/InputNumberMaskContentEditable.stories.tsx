@@ -208,3 +208,71 @@ export const RichTextDocument: Story = {
         );
     }
 };
+export const DynamicTemplateSwitcher: Story = {
+    render: () => {
+        const [type, setType] = useState<'visa' | 'amex' | 'phone'>('visa');
+
+        const configs = {
+            visa: {
+                template: 'dddd dddd dddd dddd',
+                placeholder: '•••• •••• •••• ••••',
+                label: 'Visa / Mastercard'
+            },
+            amex: {
+                template: 'dddd dddddd ddddd',
+                placeholder: '•••• •••••• •••••',
+                label: 'American Express'
+            },
+            phone: {
+                template: '(ddd) ddd-dddd',
+                placeholder: '(___) ___-____',
+                label: 'US Phone Number'
+            }
+        };
+
+        const config = configs[type];
+
+        return (
+            <div style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <button
+                        onClick={() => setType('visa')}
+                        style={{ padding: '8px 12px', background: type === 'visa' ? '#0969da' : '#eee', color: type === 'visa' ? 'white' : 'black', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                        Visa
+                    </button>
+                    <button
+                        onClick={() => setType('amex')}
+                        style={{ padding: '8px 12px', background: type === 'amex' ? '#0969da' : '#eee', color: type === 'amex' ? 'white' : 'black', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                        Amex
+                    </button>
+                    <button
+                        onClick={() => setType('phone')}
+                        style={{ padding: '8px 12px', background: type === 'phone' ? '#0969da' : '#eee', color: type === 'phone' ? 'white' : 'black', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                        Phone
+                    </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: 'bold' }}>{config.label}</label>
+                    <InputNumberMaskContentEditable
+                        template={config.template}
+                        placeholder={config.placeholder}
+                        placeholderColor="#0969da"
+                        style={{
+                            fontSize: '20px',
+                            fontFamily: 'monospace',
+                            letterSpacing: '2px',
+                            minWidth: '350px'
+                        }}
+                    />
+                    <p style={{ fontSize: '12px', color: '#666' }}>
+                        Notice how the value stays masked even as you switch formats!
+                    </p>
+                </div>
+            </div>
+        );
+    }
+};
