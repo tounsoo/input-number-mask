@@ -1,11 +1,13 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { InputNumberMask } from './InputNumberMask';
 import React from 'react';
+import { typeAndCheckCursor } from '../testUtils';
 
 describe('InputNumberMask Form Submission', () => {
-    it('submits formatted value by default', () => {
+    it('submits formatted value by default', async () => {
+        const user = userEvent.setup();
         let formData: FormData | null = null;
         const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault();
@@ -19,32 +21,30 @@ describe('InputNumberMask Form Submission', () => {
             </form>
         );
 
-        const input = screen.getByRole('textbox');
+        const input = screen.getByRole('textbox') as HTMLInputElement;
         const button = screen.getByRole('button');
 
-        // Type partial date
-        fireEvent.input(input, { target: { value: '1225' } });
-        // The hook (and component) relies on key/input events which fireEvent.input triggers basically
-        // But for full mask behavior we might need to be careful. 
-        // Our component uses the hook which updates state.
-
-        // Wait for update? Hook updates state synchronously usually but let's check value
+        // Type partial date '1225' -> '12/25/'
+        await typeAndCheckCursor(user, input, '1225', [1, 3, 4, 6]);
         expect(input).toHaveValue('12/25/');
-        // Wait, default placeholder in hook is empty string if not provided, but template literals are filled?
-        // Let's check '12/25' if no placeholder
-        // With 'dd/dd/dddd' and input '1225', it becomes '12/25'
 
-        // Let's type full date to be sure
-        fireEvent.input(input, { target: { value: '12252025' } });
+        // Type remaining '2025' -> '12/25/2025'
+        // Cursor at 6.
+        // '2' -> '12/25/2' (7)
+        // '0' -> '12/25/20' (8)
+        // '2' -> '12/25/202' (9)
+        // '5' -> '12/25/2025' (10)
+        await typeAndCheckCursor(user, input, '2025', [7, 8, 9, 10]);
         expect(input).toHaveValue('12/25/2025');
 
-        fireEvent.click(button);
+        await user.click(button);
 
         expect(formData).not.toBeNull();
         expect(formData!.get('date')).toBe('12/25/2025');
     });
 
-    it('submits raw value when returnRawValue is true', () => {
+    it('submits raw value when returnRawValue is true', async () => {
+        const user = userEvent.setup();
         let formData: FormData | null = null;
         const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault();
@@ -62,20 +62,21 @@ describe('InputNumberMask Form Submission', () => {
             </form>
         );
 
-        const input = screen.getByRole('textbox');
+        const input = screen.getByRole('textbox') as HTMLInputElement;
         const button = screen.getByRole('button');
 
-        // Type full date
-        fireEvent.input(input, { target: { value: '12252025' } });
+        // Type full date '12252025'
+        await typeAndCheckCursor(user, input, '12252025', [1, 3, 4, 6, 7, 8, 9, 10]);
         expect(input).toHaveValue('12/25/2025');
 
-        fireEvent.click(button);
+        await user.click(button);
 
         expect(formData).not.toBeNull();
         expect(formData!.get('date')).toBe('12252025');
     });
 
-    it('submits correctly via requestSubmit (native-like submission)', () => {
+    it('submits correctly via requestSubmit (native-like submission)', async () => {
+        const user = userEvent.setup();
         let formData: FormData | null = null;
         const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault();
@@ -88,11 +89,11 @@ describe('InputNumberMask Form Submission', () => {
             </form>
         );
 
-        const input = screen.getByRole('textbox');
+        const input = screen.getByRole('textbox') as HTMLInputElement;
         const form = container.querySelector('form');
 
         // Type full date
-        fireEvent.input(input, { target: { value: '12252025' } });
+        await typeAndCheckCursor(user, input, '12252025', [1, 3, 4, 6, 7, 8, 9, 10]);
         expect(input).toHaveValue('12/25/2025');
 
         // requestSubmit mimics native submission more closely than fireEvent.submit
@@ -102,7 +103,8 @@ describe('InputNumberMask Form Submission', () => {
         expect(formData!.get('date')).toBe('12/25/2025');
     });
 
-    it('submits raw value via requestSubmit when returnRawValue is true', () => {
+    it('submits raw value via requestSubmit when returnRawValue is true', async () => {
+        const user = userEvent.setup();
         let formData: FormData | null = null;
         const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault();
@@ -119,11 +121,11 @@ describe('InputNumberMask Form Submission', () => {
             </form>
         );
 
-        const input = screen.getByRole('textbox');
+        const input = screen.getByRole('textbox') as HTMLInputElement;
         const form = container.querySelector('form');
 
         // Type full date
-        fireEvent.input(input, { target: { value: '12252025' } });
+        await typeAndCheckCursor(user, input, '12252025', [1, 3, 4, 6, 7, 8, 9, 10]);
         expect(input).toHaveValue('12/25/2025');
 
         form?.requestSubmit();

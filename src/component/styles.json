@@ -1,0 +1,77 @@
+{
+    "input": {
+        "border": {
+            "color": {
+                "$type": "color",
+                "$value": "#ccc",
+                "$description": "Default border color for input elements"
+            },
+            "radius": {
+                "$type": "dimension",
+                "$value": "6px",
+                "$description": "Border radius for input elements"
+            },
+            "width": {
+                "$type": "dimension",
+                "$value": "1px",
+                "$description": "Border width for input elements"
+            },
+            "style": {
+                "$type": "strokeStyle",
+                "$value": "solid",
+                "$description": "Border style for input elements"
+            }
+        },
+        "padding": {
+            "block": {
+                "$type": "dimension",
+                "$value": "6px",
+                "$description": "Vertical padding for input elements"
+            },
+            "inline": {
+                "$type": "dimension",
+                "$value": "8px",
+                "$description": "Horizontal padding for input elements"
+            }
+        },
+        "fontFamily": {
+            "$type": "fontFamily",
+            "$value": "monospace",
+            "$description": "Font family for input elements"
+        },
+        "focus": {
+            "borderColor": {
+                "$type": "color",
+                "$value": "#0969da",
+                "$description": "Border color on focus"
+            },
+            "ringColor": {
+                "$type": "color",
+                "$value": "rgba(9, 105, 218, 0.3)",
+                "$description": "Focus ring (box-shadow) color"
+            },
+            "ringWidth": {
+                "$type": "dimension",
+                "$value": "2px",
+                "$description": "Focus ring spread radius"
+            }
+        },
+        "contentEditable": {
+            "display": {
+                "$type": "string",
+                "$value": "inline-block",
+                "$description": "Display mode for contentEditable variant"
+            },
+            "whiteSpace": {
+                "$type": "string",
+                "$value": "pre",
+                "$description": "White space handling for contentEditable variant"
+            },
+            "minWidth": {
+                "$type": "dimension",
+                "$value": "140px",
+                "$description": "Minimum width for contentEditable variant"
+            }
+        }
+    }
+}
