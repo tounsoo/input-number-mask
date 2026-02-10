@@ -144,3 +144,106 @@ export const CustomDate: Story = {
         placeholderColor: 'blue',
     },
 };
+
+// --- Rich Text Document Demo ---
+
+const RichTextDocumentDemo = () => {
+    const { ref: dateRef, value: dateValue } = useContentEditableMask({
+        template: 'dd/dd/dddd',
+        placeholder: 'mm/dd/yyyy',
+    });
+
+    const { ref: phoneRef, value: phoneValue } = useContentEditableMask({
+        template: '(ddd) ddd-dddd',
+        placeholder: '(___) ___-____',
+    });
+
+    // Manual Highlight Logic Example
+    useLayoutEffect(() => {
+        if (typeof CSS === 'undefined' || !CSS.highlights) return;
+
+        const styleId = 'rich-text-hook-style';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `::highlight(hook-placeholder) { color: #aaa; font-style: italic; }`;
+            document.head.appendChild(style);
+        }
+
+        const updateHighlight = (el: HTMLElement, template: string, placeholder: string = '_') => {
+            const highlight = new Highlight();
+            const traverse = (node: Node, globalIdx: number): number => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent || '';
+                    for (let i = 0; i < text.length; i++) {
+                        const idx = globalIdx + i;
+                        if (idx < template.length && template[idx] === 'd' && text[idx] === (placeholder[idx] || '_')) {
+                            const range = new Range();
+                            range.setStart(node, i);
+                            range.setEnd(node, i + 1);
+                            highlight.add(range);
+                        }
+                    }
+                    return globalIdx + text.length;
+                } else {
+                    let currentIdx = globalIdx;
+                    for (let i = 0; i < node.childNodes.length; i++) {
+                        currentIdx = traverse(node.childNodes[i], currentIdx);
+                    }
+                    return currentIdx;
+                }
+            };
+            traverse(el, 0);
+            return highlight;
+        };
+
+        if (dateRef.current) CSS.highlights.set('hook-placeholder-date', updateHighlight(dateRef.current, 'dd/dd/dddd', 'mm/dd/yyyy'));
+        if (phoneRef.current) CSS.highlights.set('hook-placeholder-phone', updateHighlight(phoneRef.current, '(ddd) ddd-dddd', '(___) ___-____'));
+
+        // Add style for specific highlight names
+        const specificStyleId = 'specific-hook-style';
+        if (!document.getElementById(specificStyleId)) {
+            const style = document.createElement('style');
+            style.id = specificStyleId;
+            style.textContent = `
+                ::highlight(hook-placeholder-date) { color: #0969da; }
+                ::highlight(hook-placeholder-phone) { color: #cf222e; }
+             `;
+            document.head.appendChild(style);
+        }
+    }, [dateValue, phoneValue]);
+
+    const inlineStyle: React.CSSProperties = {
+        display: 'inline-block',
+        minWidth: '120px',
+        borderBottom: '1px solid #ddd',
+        outline: 'none',
+        fontFamily: 'monospace',
+        padding: '0 4px',
+        verticalAlign: 'baseline'
+    };
+
+    return (
+        <div style={{
+            maxWidth: '600px',
+            lineHeight: '2',
+            fontFamily: 'serif',
+            padding: '20px',
+            border: '1px solid #eee',
+            borderRadius: '8px'
+        }}>
+            <h2>Hook Integration Example</h2>
+            <p>
+                Patient was admitted on <div ref={dateRef} contentEditable suppressContentEditableWarning style={inlineStyle} />
+                and can be reached via telephone at <div ref={phoneRef} contentEditable suppressContentEditableWarning style={inlineStyle} />.
+            </p>
+            <p style={{ fontSize: '0.8em', color: '#666', borderTop: '1px solid #eee', marginTop: '20px', paddingTop: '10px' }}>
+                * This example uses <code>useContentEditableMask</code> hooks directly on two separate div elements within a single paragraph.
+            </p>
+        </div>
+    );
+};
+
+export const RichTextIntegration: Story = {
+    render: () => <RichTextDocumentDemo />,
+};
