@@ -247,3 +247,86 @@ const RichTextDocumentDemo = () => {
 export const RichTextIntegration: Story = {
     render: () => <RichTextDocumentDemo />,
 };
+
+// --- One Large Template Demo ---
+
+const OneLargeTemplateDemo = () => {
+    const template = "ORDER #ddddd-dd CONFIRMATION: SHIP DATE dd/dd/dddd | TRACKING dddd-dddd-dddd-dddd";
+    const placeholder = "ORDER #00000-00 CONFIRMATION: SHIP DATE mm/dd/yyyy | TRACKING ____-____-____-____";
+
+    const { ref, value } = useContentEditableMask({
+        template,
+        placeholder,
+    });
+
+    useLayoutEffect(() => {
+        if (typeof CSS === 'undefined' || !CSS.highlights || !ref.current) return;
+        const el = ref.current;
+        const highlight = new Highlight();
+
+        const traverse = (node: Node, globalIdx: number): number => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent || '';
+                for (let i = 0; i < text.length; i++) {
+                    const idx = globalIdx + i;
+                    // Highlight the placeholder characters within the slots
+                    if (idx < template.length && template[idx] === 'd' && text[i] === (placeholder[idx] || '_')) {
+                        const range = new Range();
+                        range.setStart(node, i);
+                        range.setEnd(node, i + 1);
+                        highlight.add(range);
+                    }
+                }
+                return globalIdx + text.length;
+            } else {
+                let currentIdx = globalIdx;
+                for (let i = 0; i < node.childNodes.length; i++) {
+                    currentIdx = traverse(node.childNodes[i], currentIdx);
+                }
+                return currentIdx;
+            }
+        };
+
+        traverse(el, 0);
+        CSS.highlights.set('large-template-highlight', highlight);
+
+        const styleId = 'large-template-style';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `::highlight(large-template-highlight) { color: #cf222e; font-weight: bold; background: rgba(207, 34, 46, 0.05); }`;
+            document.head.appendChild(style);
+        }
+        return () => { CSS.highlights.delete('large-template-highlight'); };
+    }, [value, template, placeholder]);
+
+    return (
+        <div style={{ padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '12px', border: '1px dashed #ccc' }}>
+            <h3 style={{ marginTop: 0 }}>One Large Template</h3>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
+                In this example, the <strong>entire paragraph</strong> is a single mask. The text like "ORDER #", "SHIP DATE", and "TRACKING" are
+                hardcoded literals in the template. You can only edit the highlighted numbers.
+            </p>
+            <div
+                ref={ref}
+                contentEditable
+                suppressContentEditableWarning
+                style={{
+                    padding: '16px',
+                    fontSize: '18px',
+                    backgroundColor: '#fff',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontFamily: 'monospace',
+                    lineHeight: '1.5',
+                    outline: 'none',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+                }}
+            />
+        </div>
+    );
+};
+
+export const OneLargeTemplate: Story = {
+    render: () => <OneLargeTemplateDemo />,
+};
