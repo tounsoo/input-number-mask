@@ -1,5 +1,11 @@
 # @tounsoo/input-number-mask
 
+## 1.1.1
+
+### Patch Changes
+
+- 3ab80eb: Fix: keepPosition bug in useInputNumberMask where cursors were resetting incorrectly. Also fixed linting issues and updated documentation. Fixes #19
+
 ## 1.1.0
 
 ### Minor Changes
