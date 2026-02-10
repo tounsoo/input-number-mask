@@ -1,7 +1,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { useInputNumberMask } from './useInputNumberMask';
+import { useInputNumberMask } from '../useInputNumberMask';
 
 describe('useInputNumberMask', () => {
     describe('Initialization', () => {

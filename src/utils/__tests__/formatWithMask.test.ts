@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatWithMask } from './maskUtils';
+import { formatWithMask } from '../maskUtils';
 
 describe('formatWithMask', () => {
     describe('basic formatting', () => {

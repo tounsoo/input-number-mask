@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyKeepPositionChange, isMatchWithMask } from './maskUtils';
+import { applyKeepPositionChange, isMatchWithMask } from '../maskUtils';
 
 describe('applyKeepPositionChange', () => {
     const template = 'dd/dd/dddd';

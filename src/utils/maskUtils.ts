@@ -226,21 +226,10 @@ export const calculateMaskState = (
         const formatted = formatWithMask(newDigits, template, placeholder);
 
         // Calculate cursor
-        let currentDigits = 0;
         const beforeCursorRaw = newValRaw.slice(0, start + char.length);
         const digitsBeforeCursor = cleanInput(beforeCursorRaw, template).length;
 
-        let newCursor = 0;
-        for (let i = 0; i < formatted.length; i++) {
-            if (currentDigits >= digitsBeforeCursor) break;
-            if (isDigit(formatted[i]) && template[i] === 'd') {
-                currentDigits++;
-            }
-            newCursor++;
-        }
-        while (newCursor < formatted.length && template[newCursor] !== 'd') {
-            newCursor++;
-        }
+        const newCursor = getCursorPosAfterFormat(formatted, template, digitsBeforeCursor);
 
         return { value: formatted, cursor: newCursor };
     }
@@ -324,3 +313,33 @@ export const calculateMaskState = (
 
     return null;
 }
+
+
+
+/**
+ * Calculates the new cursor position in a formatted string based on the
+ * number of digits effectively preceding the cursor in the raw input.
+ */
+export const getCursorPosAfterFormat = (
+    formattedValue: string,
+    template: string,
+    digitsBeforeCursor: number
+): number => {
+    let currentDigits = 0;
+    let newCursor = 0;
+
+    for (let i = 0; i < formattedValue.length; i++) {
+        if (currentDigits >= digitsBeforeCursor) break;
+        if (isDigit(formattedValue[i]) && template[i] === 'd') {
+            currentDigits++;
+        }
+        newCursor++;
+    }
+
+    // Skip literals after the last digit
+    while (newCursor < formattedValue.length && template[newCursor] !== 'd') {
+        newCursor++;
+    }
+
+    return newCursor;
+};

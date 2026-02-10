@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect } from 'react';
-import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit } from '../utils/maskUtils';
+import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit, getCursorPosAfterFormat } from '../utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
     /**
@@ -190,20 +190,7 @@ export function useInputNumberMask({
                 setValue(newFormatted);
                 onValueChange?.(newFormatted);
 
-                let currentDigits = 0;
-                let newCursor = 0;
-                for (let i = 0; i < newFormatted.length; i++) {
-                    if (currentDigits >= digitsBeforeCursor) break;
-                    if (isDigit(newFormatted[i]) && template[i] === 'd') {
-                        currentDigits++;
-                    }
-                    newCursor++;
-                }
-
-                while (newCursor < newFormatted.length && template[newCursor] !== 'd') {
-                    newCursor++;
-                }
-
+                const newCursor = getCursorPosAfterFormat(newFormatted, template, digitsBeforeCursor);
                 setCursor(newCursor);
             };
 

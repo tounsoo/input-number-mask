@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
-import { InputNumberMask } from './InputNumberMask';
+import { InputNumberMask } from '../InputNumberMask';
 import React from 'react';
-import { typeAndCheckCursor } from '../testUtils';
+import { typeAndCheckCursor } from '../../testUtils';
 
 describe('InputNumberMask Form Submission', () => {
     it('submits formatted value by default', async () => {

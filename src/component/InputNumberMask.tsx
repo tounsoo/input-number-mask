@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useState } from 'react';
+import { useEffect, useState, type InputHTMLAttributes, type Ref, type RefObject } from 'react';
 import { useInputNumberMask } from '../hook/useInputNumberMask';
 import { cleanInput, formatWithMask } from '../utils/maskUtils';
 import tokens from './styles.json';
@@ -20,7 +20,7 @@ const baseStyles = `
     }
 `;
 
-export interface InputNumberMaskProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue'> {
+export interface InputNumberMaskCoreProps {
     /**
      * The mask template. 'd' represents a digit slot.
      * All other characters are treated as literals.
@@ -64,82 +64,80 @@ export interface InputNumberMaskProps extends Omit<React.InputHTMLAttributes<HTM
      */
     onValueChange?: (value: string) => void;
 }
+export interface InputNumberMaskProps extends InputNumberMaskCoreProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'placeholder' | 'onChange' | 'onInput' | 'dangerouslySetInnerHTML'> { }
 
-export const InputNumberMask = forwardRef<HTMLInputElement, InputNumberMaskProps>(
-    ({
+export const InputNumberMask = ({
+    template,
+    placeholder,
+    keepPosition,
+    returnRawValue = false,
+    onValueChange,
+    value: controlledValue,
+    defaultValue,
+    ref, // onChange was here
+    ...props
+}: InputNumberMaskProps & { ref?: Ref<HTMLInputElement> }) => {
+
+    // Determine if we're in controlled mode
+    const isControlled = controlledValue !== undefined;
+
+    // Internal state for uncontrolled mode
+    const [internalValue, setInternalValue] = useState(() => {
+        if (defaultValue !== undefined) {
+            const digits = cleanInput(defaultValue, template);
+            return formatWithMask(digits, template, placeholder);
+        }
+        return formatWithMask('', template, placeholder);
+    });
+
+    // The value to pass to the hook - controlled or internal
+    const valueForHook = isControlled ? controlledValue : internalValue;
+
+    const { ref: maskRef, value: maskValue } = useInputNumberMask({
         template,
         placeholder,
         keepPosition,
-        returnRawValue = false,
-        onValueChange,
-        value: controlledValue,
-        defaultValue,
-        onChange,
-        ...props
-    }, ref) => {
-
-        // Determine if we're in controlled mode
-        const isControlled = controlledValue !== undefined;
-
-        // Internal state for uncontrolled mode
-        const [internalValue, setInternalValue] = useState(() => {
-            if (defaultValue !== undefined) {
-                const digits = cleanInput(defaultValue, template);
-                return formatWithMask(digits, template, placeholder);
+        value: valueForHook,
+        onValueChange: (val) => {
+            // Update internal state for uncontrolled mode
+            if (!isControlled) {
+                setInternalValue(val);
             }
-            return formatWithMask('', template, placeholder);
-        });
+            const raw = cleanInput(val, template);
+            onValueChange?.(returnRawValue ? raw : val);
+        }
+    });
 
-        // The value to pass to the hook - controlled or internal
-        const valueForHook = isControlled ? controlledValue : internalValue;
+    // Sync external ref if provided
+    useEffect(() => {
+        if (typeof ref === 'function') {
+            ref(maskRef.current);
+        } else if (ref) {
+            // @ts-ignore: Mutable ref object
+            (ref as RefObject<HTMLInputElement | null>).current = maskRef.current;
+        }
+    }, [maskRef, ref]);
 
-        const { ref: maskRef, value: maskValue } = useInputNumberMask({
-            template,
-            placeholder,
-            keepPosition,
-            value: valueForHook,
-            onValueChange: (val) => {
-                // Update internal state for uncontrolled mode
-                if (!isControlled) {
-                    setInternalValue(val);
-                }
-                const raw = cleanInput(val, template);
-                onValueChange?.(returnRawValue ? raw : val);
-            }
-        });
+    const rawValue = cleanInput(maskValue, template);
+    const visibleInputName = returnRawValue && props.name ? undefined : props.name;
 
-        // Sync external ref if provided
-        useEffect(() => {
-            if (typeof ref === 'function') {
-                ref(maskRef.current);
-            } else if (ref) {
-                ref.current = maskRef.current;
-            }
-        }, [maskRef, ref]);
-
-        const rawValue = cleanInput(maskValue, template);
-        const visibleInputName = returnRawValue && props.name ? undefined : props.name;
-
-        return (
-            <>
-                <style>{baseStyles}</style>
-                <input
-                    {...props}
-                    className={`input-number-mask ${props.className || ''}`}
-                    name={visibleInputName}
-                    ref={maskRef}
-                    value={maskValue}
-                    onChange={(e) => {
-                        onChange?.(e);
-                    }}
-                />
-                {returnRawValue && props.name && (
-                    <input type="hidden" name={props.name} value={rawValue} />
-                )}
-            </>
-        );
-    }
-);
+    return (
+        <>
+            <style>{baseStyles}</style>
+            <input
+                {...props}
+                className={`input-number-mask ${props.className || ''}`}
+                name={visibleInputName}
+                ref={maskRef}
+                value={maskValue}
+                onChange={() => { }}
+            />
+            {returnRawValue && props.name && (
+                <input type="hidden" name={props.name} value={rawValue} />
+            )}
+        </>
+    );
+};
 
 InputNumberMask.displayName = 'InputNumberMask';
 
