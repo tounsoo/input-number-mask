@@ -117,3 +117,94 @@ export const FormSubmission: Story = {
         );
     },
 };
+export const RichTextDocument: Story = {
+    render: () => {
+        return (
+            <div style={{
+                maxWidth: '600px',
+                margin: '40px auto',
+                padding: '40px',
+                backgroundColor: '#fff',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                borderRadius: '12px',
+                fontFamily: 'Georgia, serif',
+                lineHeight: '1.8',
+                color: '#333'
+            }}>
+                <h1 style={{ textAlign: 'center', marginBottom: '40px', fontFamily: 'system-ui' }}>Service Agreement</h1>
+                <p>
+                    This agreement is entered into on this day
+                    <InputNumberMaskContentEditable
+                        template="dd/dd/dddd"
+                        placeholder="mm/dd/yyyy"
+                        placeholderColor="#aaa"
+                        style={{
+                            display: 'inline-flex',
+                            border: 'none',
+                            borderBottom: '1px solid #ddd',
+                            padding: '0 4px',
+                            minWidth: '100px',
+                            borderRadius: '0',
+                            backgroundColor: 'transparent',
+                            margin: '0 4px',
+                            verticalAlign: 'baseline',
+                            boxShadow: 'none',
+                            fontFamily: 'monospace',
+                            fontSize: '1em'
+                        }}
+                    />,
+                    between the Client and the Service Provider.
+                </p>
+                <p>
+                    The Client warrants that they can be reached at their primary contact number
+                    <InputNumberMaskContentEditable
+                        template="(ddd) ddd-dddd"
+                        placeholder="(___) ___-____"
+                        placeholderColor="#aaa"
+                        style={{
+                            display: 'inline-flex',
+                            border: 'none',
+                            borderBottom: '1px solid #ddd',
+                            padding: '0 4px',
+                            minWidth: '120px',
+                            borderRadius: '0',
+                            backgroundColor: 'transparent',
+                            margin: '0 4px',
+                            verticalAlign: 'baseline',
+                            boxShadow: 'none',
+                            fontFamily: 'monospace',
+                            fontSize: '1em'
+                        }}
+                    />
+                    for all official communications regarding this contract.
+                </p>
+                <p>
+                    A non-refundable deposit of
+                    <InputNumberMaskContentEditable
+                        template="dddd.dd"
+                        placeholder="0000.00"
+                        placeholderColor="#aaa"
+                        style={{
+                            display: 'inline-flex',
+                            border: 'none',
+                            borderBottom: '1px solid #ddd',
+                            padding: '0 4px',
+                            minWidth: '80px',
+                            borderRadius: '0',
+                            backgroundColor: 'transparent',
+                            margin: '0 4px',
+                            verticalAlign: 'baseline',
+                            boxShadow: 'none',
+                            fontFamily: 'monospace',
+                            fontSize: '1em'
+                        }}
+                    />
+                    USD shall be paid upon signing.
+                </p>
+                <div style={{ marginTop: '50px', borderTop: '1px solid #eee', paddingTop: '20px', fontSize: '0.9em', color: '#666' }}>
+                    * This document was generated electronically.
+                </div>
+            </div>
+        );
+    }
+};
