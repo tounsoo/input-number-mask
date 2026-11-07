@@ -1,6 +1,53 @@
 export const isDigit = (char: string) => /\d/.test(char);
 
-export const cleanInput = (input: string, template: string): string => {
+/**
+ * Maps full-width digits (such as `１２３` from Korean, Japanese and Chinese IMEs)
+ * and other compatibility forms of 0-9 to ASCII digits with NFKC.
+ *
+ * Works one UTF-16 unit at a time so the string keeps its length and caret
+ * offsets stay valid. A character that doesn't normalize to a single ASCII digit
+ * is left as it is.
+ */
+export const normalizeDigits = (input: string): string => {
+    // Fast path: printable ASCII has nothing to normalize.
+    if (/^[\x20-\x7e]*$/.test(input)) return input;
+
+    let out = '';
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+        const normalized = char.normalize('NFKC');
+        out += normalized.length === 1 && isDigit(normalized) ? normalized : char;
+    }
+    return out;
+};
+
+/**
+ * Works out what an IME changed between the text before a composition and the
+ * text after it: the range of `before` it replaced and the text it put there.
+ * The change starts no later than the selection the composition began with and
+ * ends no earlier than it, which keeps repeated characters from shifting it.
+ * IMEs can replace text before the caret (Japanese reconversion, Android
+ * keyboards re-composing a word), so this isn't assumed to be an insertion.
+ */
+export const diffComposition = (
+    before: string,
+    after: string,
+    selectionStart: number,
+    selectionEnd: number
+): { start: number; end: number; text: string } => {
+    let start = 0;
+    const maxStart = Math.min(selectionStart, before.length, after.length);
+    while (start < maxStart && before[start] === after[start]) start++;
+
+    let suffix = 0;
+    const maxSuffix = Math.max(0, Math.min(before.length - Math.max(selectionEnd, start), after.length - start));
+    while (suffix < maxSuffix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
+
+    return { start, end: before.length - suffix, text: after.slice(start, after.length - suffix) };
+};
+
+export const cleanInput = (rawInput: string, template: string): string => {
+    const input = normalizeDigits(rawInput);
     let extracted = '';
     let t = 0;
 
@@ -161,7 +208,8 @@ export const applyKeepPositionChange = (
     return { value: newValue, cursor: newCursor };
 };
 
-export const isMatchWithMask = (value: string, template: string, placeholder?: string): boolean => {
+export const isMatchWithMask = (rawValue: string, template: string, placeholder?: string): boolean => {
+    const value = normalizeDigits(rawValue);
     if (value.length !== template.length) return false;
 
     for (let i = 0; i < template.length; i++) {
@@ -196,10 +244,11 @@ export const calculateMaskState = (
     start: number,
     end: number,
     inputType: 'insert' | 'deleteBackward' | 'deleteForward',
-    char: string = '',
+    rawChar: string = '',
     keepPosition: boolean = false
 ): { value: string, cursor: number } | null => {
 
+    const char = normalizeDigits(rawChar);
     const isSelection = start !== end;
 
     if (inputType === 'insert') {
@@ -315,6 +364,41 @@ export const calculateMaskState = (
 }
 
 
+
+/**
+ * Applies an IME change (see `diffComposition`) to the pre-composition value.
+ * Only the digits of the committed text count. With keepPosition they go in one
+ * at a time, so a commit that carries more than one character (a syllable plus
+ * the digit typed after it) fills slots instead of shifting digits into gaps.
+ */
+export const applyCompositionChange = (
+    currentValue: string,
+    template: string,
+    placeholder: string | undefined,
+    change: { start: number; end: number; text: string },
+    keepPosition: boolean = false
+): { value: string; cursor: number } => {
+    const digits = normalizeDigits(change.text).split('').filter(isDigit).join('');
+    const isSelection = change.start !== change.end;
+
+    if (!keepPosition) {
+        return calculateMaskState(currentValue, template, placeholder, change.start, change.end, 'insert', digits)
+            ?? { value: currentValue, cursor: change.start };
+    }
+
+    if (!digits) {
+        if (!isSelection) return { value: currentValue, cursor: change.start };
+        return calculateMaskState(currentValue, template, placeholder, change.start, change.end, 'deleteForward', '', true)
+            ?? { value: currentValue, cursor: change.start };
+    }
+
+    let result = calculateMaskState(currentValue, template, placeholder, change.start, change.end, 'insert', digits[0], true)
+        ?? { value: currentValue, cursor: change.start };
+    for (const digit of digits.slice(1)) {
+        result = calculateMaskState(result.value, template, placeholder, result.cursor, result.cursor, 'insert', digit, true) ?? result;
+    }
+    return result;
+};
 
 /**
  * Calculates the new cursor position in a formatted string based on the

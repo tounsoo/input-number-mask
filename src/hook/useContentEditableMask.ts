@@ -1,5 +1,6 @@
-import { useRef, useState, useLayoutEffect, useCallback } from 'react';
-import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState } from '../utils/maskUtils';
+import { flushSync } from 'react-dom';
+import { useEffect, useRef, useState, useLayoutEffect, useCallback } from 'react';
+import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, normalizeDigits, diffComposition, applyCompositionChange } from '../utils/maskUtils';
 
 export interface UseContentEditableMaskProps {
     template: string;
@@ -34,15 +35,30 @@ export function useContentEditableMask({
 
     const ref = useRef<HTMLDivElement>(null);
     const [cursor, setCursor] = useState<number | null>(null);
+    // True from compositionstart until the committed text is masked. A controlled
+    // update then waits, so it doesn't overwrite the text the IME owns.
+    const [composing, setComposing] = useState(false);
+    const composingRef = useRef(false);
+    // The formatted value and selection from just before an IME composition started.
+    const compositionStartRef = useRef<{ value: string; start: number; end: number } | null>(null);
+    // Browsers differ in when the committed text reaches the DOM: Chrome before
+    // compositionend, Safari after it. So the commit waits for the next input
+    // event or the next task, whichever comes first, and masks the final text.
+    const pendingCommitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const commitRef = useRef<() => void>(() => { });
+
+    useEffect(() => () => {
+        if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+    }, []);
 
     // Sync internal state to controlled value
     const formattedControlled = controlledValue !== undefined
         ? (keepPosition && isMatchWithMask(controlledValue, template, placeholder)
-            ? controlledValue
+            ? normalizeDigits(controlledValue)
             : formatWithMask(cleanInput(controlledValue, template), template, placeholder))
         : null;
 
-    if (formattedControlled !== null && formattedControlled !== value) {
+    if (!composing && formattedControlled !== null && formattedControlled !== value) {
         setValue(formattedControlled);
     }
 
@@ -123,6 +139,12 @@ export function useContentEditableMask({
         if (!el) return;
 
         const handleBeforeInput = (e: InputEvent) => {
+            // Composition input can't be cancelled; the text is masked once the
+            // composition ends. Input right after compositionend (Chrome's Korean IME
+            // sends the next digit then) also goes through to the DOM, and the
+            // pending commit masks it together with the composed text.
+            if (e.isComposing || composingRef.current || pendingCommitRef.current !== null || e.inputType.includes('Composition')) return;
+
             if (e.inputType === 'insertText' || e.inputType === 'insertFromPaste') {
                 e.preventDefault();
 
@@ -212,10 +234,62 @@ export function useContentEditableMask({
             }
         };
 
+        const commitComposition = () => {
+            if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+            pendingCommitRef.current = null;
+            setComposing(false);
+
+            const before = compositionStartRef.current;
+            compositionStartRef.current = null;
+            if (!before) return;
+
+            // The IME wrote straight into the DOM. Apply what it changed as one edit
+            // of the pre-composition value, so the text goes through the mask.
+            const text = el.textContent || '';
+            const change = diffComposition(before.value, text, before.start, before.end);
+            const result = applyCompositionChange(before.value, template, placeholder, change, keepPosition);
+
+            // Write the DOM now: React state may not change (nothing kept), and then
+            // no effect would remove the composed text.
+            if (el.textContent !== result.value) el.textContent = result.value;
+            setCaretPosition(el, result.cursor);
+            setValue(result.value);
+            setCursor(result.cursor);
+            if (result.value !== before.value) onValueChange?.(result.value);
+        };
+        commitRef.current = commitComposition;
+
+        const handleCompositionStart = () => {
+            // A new composition right after another one: settle the first.
+            if (pendingCommitRef.current !== null) commitComposition();
+            composingRef.current = true;
+            // The DOM shows the formatted value here, even right after a commit
+            // that hasn't re-rendered yet.
+            compositionStartRef.current = { value: el.textContent || '', ...getSelectionIndices(el) };
+            setComposing(true);
+        };
+
+        const handleCompositionEnd = () => {
+            composingRef.current = false;
+            if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+            // flushSync so the listeners re-bind with the committed value before any later key.
+            pendingCommitRef.current = setTimeout(() => flushSync(() => commitRef.current()), 0);
+        };
+
+        const handleInput = () => {
+            if (!composingRef.current && pendingCommitRef.current !== null) commitComposition();
+        };
+
         el.addEventListener('beforeinput', handleBeforeInput as EventListener);
+        el.addEventListener('input', handleInput);
+        el.addEventListener('compositionstart', handleCompositionStart);
+        el.addEventListener('compositionend', handleCompositionEnd);
         el.addEventListener('focus', handleFocus);
         return () => {
             el.removeEventListener('beforeinput', handleBeforeInput as EventListener);
+            el.removeEventListener('input', handleInput);
+            el.removeEventListener('compositionstart', handleCompositionStart);
+            el.removeEventListener('compositionend', handleCompositionEnd);
             el.removeEventListener('focus', handleFocus);
         };
     }, [value, template, placeholder, keepPosition, onValueChange, getSelectionIndices, setCaretPosition]);

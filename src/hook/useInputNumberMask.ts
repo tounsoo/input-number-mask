@@ -1,5 +1,6 @@
-import { useRef, useState, useLayoutEffect } from 'react';
-import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit, getCursorPosAfterFormat } from '../utils/maskUtils';
+import { flushSync } from 'react-dom';
+import { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit, getCursorPosAfterFormat, normalizeDigits, diffComposition, applyCompositionChange } from '../utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
     /**
@@ -74,24 +75,40 @@ export function useInputNumberMask({
     });
 
     const [cursor, setCursor] = useState<number | null>(null);
+    // True while an IME composition is in progress. The value then mirrors the
+    // input as typed, unformatted, so React doesn't reset the text the IME owns.
+    const [composing, setComposing] = useState(false);
     const ref = useRef<HTMLInputElement>(null);
     const selectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+    const composingRef = useRef(false);
+    // The formatted value and selection from just before the composition started.
+    const compositionStartRef = useRef<{ value: string; start: number; end: number } | null>(null);
+    // Browsers differ in when the committed text reaches the DOM: Chrome before
+    // compositionend, Safari after it. So the commit waits for the next input
+    // event or the next task, whichever comes first, and masks the final text.
+    const pendingCommitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const commitRef = useRef<() => void>(() => { });
 
     const formattedControlled = controlledValue !== undefined
         ? (keepPosition && isMatchWithMask(controlledValue, template, placeholder)
-            ? controlledValue
+            ? normalizeDigits(controlledValue)
             : formatWithMask(cleanInput(controlledValue, template), template, placeholder))
         : null;
 
-    if (formattedControlled !== null && formattedControlled !== value) {
+    if (!composing && formattedControlled !== null && formattedControlled !== value) {
         setValue(formattedControlled);
     }
 
     useLayoutEffect(() => {
+        if (composing) return;
         if (ref.current && cursor !== null) {
             ref.current.setSelectionRange(cursor, cursor);
         }
-    }, [cursor, value]);
+    }, [cursor, value, composing]);
+
+    useEffect(() => () => {
+        if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+    }, []);
 
     useLayoutEffect(() => {
         const input = ref.current;
@@ -108,6 +125,11 @@ export function useInputNumberMask({
 
         const handleKeyDown = (e: globalThis.KeyboardEvent) => {
             updateSelection();
+            // Keys during an IME composition belong to the IME. Safari and older
+            // browsers report some of them with keyCode 229 and isComposing false.
+            // A key right after compositionend is left to the browser too; the
+            // pending commit then masks the text it produced.
+            if (e.isComposing || e.keyCode === 229 || composingRef.current || pendingCommitRef.current !== null) return;
             const el = e.target as HTMLInputElement;
             const start = el.selectionStart || 0;
             const end = el.selectionEnd || 0;
@@ -140,6 +162,17 @@ export function useInputNumberMask({
             const inputVal = target.value;
             const rawCursor = target.selectionStart || 0;
 
+            if (composingRef.current || (e as InputEvent).isComposing) {
+                // Don't reformat mid-composition: mirror the text so the IME keeps it.
+                setValue(inputVal);
+                return;
+            }
+
+            if (pendingCommitRef.current !== null) {
+                commitComposition();
+                return;
+            }
+
             const prevStart = selectionRef.current.start;
             const prevEnd = selectionRef.current.end;
 
@@ -148,7 +181,7 @@ export function useInputNumberMask({
 
             if (keepPosition && typedChars === 1 && rawCursor > 0) {
                 const insertIndex = rawCursor - 1;
-                const char = inputVal[insertIndex];
+                const char = normalizeDigits(inputVal[insertIndex]);
 
                 // If we have a single typed char, reuse calculateMaskState
                 if (isDigit(char)) {
@@ -197,7 +230,56 @@ export function useInputNumberMask({
             standardChange();
         };
 
+        const handleCompositionStart = () => {
+            // A new composition right after another one: settle the first.
+            if (pendingCommitRef.current !== null) commitComposition();
+            composingRef.current = true;
+            // The input shows the formatted value here, even right after a commit
+            // that hasn't re-rendered yet.
+            compositionStartRef.current = {
+                value: input.value,
+                start: input.selectionStart ?? 0,
+                end: input.selectionEnd ?? 0,
+            };
+            setComposing(true);
+        };
+
+        const commitComposition = () => {
+            if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+            pendingCommitRef.current = null;
+
+            setComposing(false);
+            const inputVal = input.value;
+            const before = compositionStartRef.current;
+            compositionStartRef.current = null;
+
+            // Apply what the IME changed as one edit of the pre-composition value,
+            // so keepPosition and the caret behave as they do for typing.
+            const base = before ?? { value: formatWithMask('', template, placeholder), start: 0, end: 0 };
+            const change = before
+                ? diffComposition(base.value, inputVal, base.start, base.end)
+                : { start: 0, end: 0, text: inputVal };
+            const result = applyCompositionChange(base.value, template, placeholder, change, keepPosition);
+
+            if (input.value !== result.value) input.value = result.value;
+            input.setSelectionRange(result.cursor, result.cursor);
+            updateSelection();
+            setValue(result.value);
+            setCursor(result.cursor);
+            if (result.value !== base.value) onValueChange?.(result.value);
+        };
+        commitRef.current = commitComposition;
+
+        const handleCompositionEnd = () => {
+            composingRef.current = false;
+            if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+            // flushSync so the listeners re-bind with the committed value before any later key.
+            pendingCommitRef.current = setTimeout(() => flushSync(() => commitRef.current()), 0);
+        };
+
         input.addEventListener('keydown', handleKeyDown);
+        input.addEventListener('compositionstart', handleCompositionStart);
+        input.addEventListener('compositionend', handleCompositionEnd);
         input.addEventListener('input', handleInput);
         input.addEventListener('select', updateSelection);
         input.addEventListener('click', updateSelection);
@@ -206,6 +288,8 @@ export function useInputNumberMask({
 
         return () => {
             input.removeEventListener('keydown', handleKeyDown);
+            input.removeEventListener('compositionstart', handleCompositionStart);
+            input.removeEventListener('compositionend', handleCompositionEnd);
             input.removeEventListener('input', handleInput);
             input.removeEventListener('select', updateSelection);
             input.removeEventListener('click', updateSelection);
