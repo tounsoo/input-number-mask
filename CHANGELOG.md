@@ -1,5 +1,13 @@
 # @tounsoo/input-number-mask
 
+## 1.2.1
+
+### Patch Changes
+
+- 4f11b6f: - **InputNumberMaskContentEditable / useContentEditableMask**: Fixed paste. Browsers leave `data` empty on a contenteditable paste and put the text in `dataTransfer`, so pasting inserted nothing. The pasted text is now read from `dataTransfer` when `data` is empty.
+- 6ff0dea: Export `useInputNumberMask` and `useContentEditableMask` from the package again, with their prop and return types. 1.2.0 dropped the `useInputNumberMask` export that 1.1.1 had, and never exported `useContentEditableMask`, although its changelog, the README and the Storybook docs all show importing both.
+- fe554e7: Ship TypeScript declarations again. 1.2.0 was published without any `.d.ts` files, because the library build cleared tsc's output before packing. The package now includes bundled `dist/index.d.ts` for `import` and `dist/index.d.cts` for `require`, and both CI and the publish step now check the packed output with publint, arethetypeswrong and an export check, so the types can't go missing again.
+
 ## 1.2.0
 
 ### Minor Changes
