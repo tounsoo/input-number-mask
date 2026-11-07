@@ -228,12 +228,39 @@ export function useInputNumberMask({
                 }
             }
 
-            const standardChange = () => {
-                const beforeCursor = inputVal.slice(0, rawCursor);
-                const digitsBeforeCursor = cleanInput(beforeCursor, template).length;
+            // The edit as the browser made it: the previous selection replaced by
+            // the typed text. Going through calculateMaskState keeps the template's
+            // own literal digits (the 1 in "+1 (ddd)") from being read as typed
+            // digits when the caret was before them.
+            const edit = (): { value: string; cursor: number } | null => {
+                if (typedChars < 0) return null;
+                if (inputVal.slice(0, prevStart) !== value.slice(0, prevStart)) return null;
+                if (inputVal.slice(prevStart + typedChars) !== value.slice(prevEnd)) return null;
+                return calculateMaskState(
+                    value,
+                    template,
+                    placeholder,
+                    prevStart,
+                    prevEnd,
+                    'insert',
+                    inputVal.slice(prevStart, prevStart + typedChars),
+                    false
+                );
+            };
 
-                const newDigits = cleanInput(inputVal, template);
-                const newFormatted = formatWithMask(newDigits, template, placeholder);
+            const standardChange = () => {
+                const edited = keepPosition ? null : edit();
+                let newFormatted: string;
+                let newCursor: number;
+                if (edited) {
+                    newFormatted = edited.value;
+                    newCursor = edited.cursor;
+                } else {
+                    const beforeCursor = inputVal.slice(0, rawCursor);
+                    const digitsBeforeCursor = cleanInput(beforeCursor, template).length;
+                    newFormatted = formatWithMask(cleanInput(inputVal, template), template, placeholder);
+                    newCursor = getCursorPosAfterFormat(newFormatted, template, digitsBeforeCursor);
+                }
 
                 if (newFormatted === value) {
                     const restorePos = selectionRef.current.start;
@@ -247,8 +274,6 @@ export function useInputNumberMask({
 
                 setValue(newFormatted);
                 onValueChange?.(toDisplay(newFormatted));
-
-                const newCursor = getCursorPosAfterFormat(newFormatted, template, digitsBeforeCursor);
                 setCursor(newCursor);
             };
 
