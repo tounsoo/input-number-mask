@@ -14,7 +14,7 @@
         "default": "./dist/index.mjs"
       },
       "require": {
-        "types": "./dist/index.d.ts",
+        "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
     }
@@ -27,7 +27,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:lib": "tsc -p tsconfig.lib.json && vite build --config vite.config.lib.ts",
+    "build:lib": "tsc -p tsconfig.lib.json && vite build --config vite.config.lib.ts && rollup -c rollup.config.dts.mjs",
+    "check:package": "publint --strict && attw --pack . && node scripts/check-exports.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
@@ -35,7 +36,7 @@
     "test": "vitest run",
     "test:ci": "vitest run --config vitest.config.ci.ts",
     "test:coverage": "vitest run --config vitest.coverage.ts --coverage",
-    "prepublishOnly": "pnpm build:lib",
+    "prepublishOnly": "pnpm build:lib && pnpm check:package",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build:lib && changeset publish"
@@ -45,6 +46,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@changesets/cli": "^2.31.1",
     "@chromatic-com/storybook": "^5.6.0",
     "@eslint/js": "^9.39.5",
@@ -70,8 +72,11 @@
     "globals": "^16.5.0",
     "jsdom": "^28.1.0",
     "playwright": "^1.65.0",
+    "publint": "^0.3.25",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "rollup": "^4.68.0",
+    "rollup-plugin-dts": "^6.5.1",
     "storybook": "^10.6.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.72.1",
