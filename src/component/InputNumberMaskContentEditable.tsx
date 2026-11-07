@@ -30,10 +30,10 @@ const baseStyles = `
 
 export interface InputNumberMaskContentEditableCoreProps {
     /**
-         * The mask template. 'd' represents a digit slot.
-         * All other characters are treated as literals.
-         * @example "+1 (ddd) ddd-dddd" for US phone numbers
-         */
+     * The mask template. 'd' represents a digit slot.
+     * All other characters are treated as literals.
+     * @example "+1 (ddd) ddd-dddd" for US phone numbers
+     */
     template: string;
 
     /**
@@ -58,17 +58,18 @@ export interface InputNumberMaskContentEditableCoreProps {
     returnRawValue?: boolean;
 
     /**
-     * Initial value for uncontrolled usage.
+     * Initial value for uncontrolled usage, formatted or digits only.
      */
     defaultValue?: string;
 
     /**
-     * Controlled value.
+     * Controlled value, formatted or digits only. Pair it with `onValueChange`.
      */
     value?: string;
 
     /**
-     * Callback with the input value.
+     * Called when the user changes the value, with the formatted value, or the
+     * digits only when `returnRawValue` is true.
      */
     onValueChange?: (value: string) => void;
 
@@ -80,7 +81,8 @@ export interface InputNumberMaskContentEditableCoreProps {
     placeholderColor?: string;
 
     /**
-     * Name for the hidden input field.
+     * Form field name. The hidden input under this name submits the formatted
+     * value, or the digits only when `returnRawValue` is true.
      */
     name?: string;
 

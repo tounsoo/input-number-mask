@@ -50,17 +50,18 @@ export interface InputNumberMaskCoreProps {
     returnRawValue?: boolean;
 
     /**
-     * Initial value for uncontrolled usage.
+     * Initial value for uncontrolled usage, formatted or digits only.
      */
     defaultValue?: string;
 
     /**
-     * Controlled value.
+     * Controlled value, formatted or digits only. Pair it with `onValueChange`.
      */
     value?: string;
 
     /**
-     * Callback with the input value.
+     * Called when the user changes the value, with the formatted value, or the
+     * digits only when `returnRawValue` is true.
      */
     onValueChange?: (value: string) => void;
 

@@ -14,7 +14,7 @@ import { InputNumberMaskContentEditable } from '../component/InputNumberMaskCont
 
 # @tounsoo/input-number-mask
 
-A lightweight, dependency-free React library for masking input values. It provides both standard input masking and advanced `contenteditable` support.
+React component and hooks for masking number input: phone numbers, dates, card numbers and anything else that is digits in a fixed template. Works with standard `<input>` elements and `contenteditable` containers, with no dependencies besides React 19.
 
 ## Installation
 
@@ -115,6 +115,38 @@ return <div ref={ref} contentEditable suppressContentEditableWarning />;
 
 ---
 
+## 🫙 Empty Fields
+
+By default an empty field shows the template's leading literals as its value, or the whole `placeholder` when you pass one (`(___) ___-____`). So native `required` validation never fails, `:placeholder-shown` never matches, and screen readers read the placeholder as the value.
+
+Pass `showMaskWhenEmpty={false}` to keep the field empty until the first digit. The `placeholder` is then shown as a native placeholder (`aria-placeholder` on the `contenteditable` component), and an empty field submits `""`.
+
+```tsx
+<InputNumberMask
+  template="(ddd) ddd-dddd"
+  placeholder="(___) ___-____"
+  showMaskWhenEmpty={false}
+  required
+/>
+```
+
+## 📱 Mobile Keyboards and Autofill
+
+Both components set `inputMode="numeric"`, so phones show the number keypad. Override it, and add autofill hints, as you would on any input:
+
+```tsx
+<InputNumberMask template="(ddd) ddd-dddd" type="tel" inputMode="tel" autoComplete="tel" />
+<InputNumberMask template="dddd dddd dddd dddd" autoComplete="cc-number" />
+```
+
+Don't pass `type="number"`: browsers don't allow `setSelectionRange` on number inputs, and they can't hold literals like `(` or `-`. The hooks don't set `inputMode`, so add it to your own element.
+
+## 🌏 IME and Full-Width Digits
+
+Full-width digits (`１２３`) from Korean, Japanese and Chinese keyboards are converted to ASCII digits, in typed, pasted and controlled values. While the keyboard is still composing, the text is left as typed; when the composition is committed, it goes through the mask as one edit.
+
+---
+
 ## 📝 Form Submission
 
 Both components support the `name` prop and `returnRawValue` option for easy integration with native forms.
@@ -139,3 +171,5 @@ const Form = () => {
   );
 };
 ```
+
+The components don't forward `onChange`, so with react-hook-form use `Controller` with `value` and `onValueChange` instead of `register()`.

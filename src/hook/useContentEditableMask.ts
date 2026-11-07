@@ -22,8 +22,7 @@ export interface UseContentEditableMaskProps {
      */
     keepPosition?: boolean;
     /**
-     * Callback with the formatted value.
-     * Triggered only on user interaction.
+     * Called when the user changes the value, with the formatted value.
      */
     onValueChange?: (value: string) => void;
     /**

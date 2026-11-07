@@ -11,6 +11,8 @@ const meta: Meta<typeof InputNumberMaskContentEditable> = {
         keepPosition: { control: 'boolean' },
         returnRawValue: { control: 'boolean' },
         placeholderColor: { control: 'color' },
+        showMaskWhenEmpty: { control: 'boolean' },
+        inputMode: { control: 'select', options: ['numeric', 'tel', 'decimal', 'text'] },
     },
 };
 
@@ -42,6 +44,23 @@ export const KeepPosition: Story = {
         keepPosition: true,
         placeholderColor: 'orange',
         'aria-label': 'Phone number',
+    },
+};
+
+export const EmptyUntilFirstDigit: Story = {
+    args: {
+        template: '(ddd) ddd-dddd',
+        placeholder: '(___) ___-____',
+        placeholderColor: 'gray',
+        showMaskWhenEmpty: false,
+        'aria-label': 'Phone number',
+    },
+    parameters: {
+        docs: {
+            description: {
+                story: 'With `showMaskWhenEmpty={false}` the field stays empty until the first digit. `placeholder` is shown in its place and set as `aria-placeholder`.',
+            },
+        },
     },
 };
 

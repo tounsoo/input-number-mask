@@ -16,6 +16,8 @@ const meta: Meta<typeof InputNumberMask> = {
         placeholder: { control: 'text' },
         keepPosition: { control: 'boolean' },
         returnRawValue: { control: 'boolean' },
+        showMaskWhenEmpty: { control: 'boolean' },
+        inputMode: { control: 'select', options: ['numeric', 'tel', 'decimal', 'text'] },
         disabled: { control: 'boolean' },
         readOnly: { control: 'boolean' },
         autoFocus: { control: 'boolean' },
@@ -82,6 +84,50 @@ export const WithPlaceholder: Story = {
         placeholder: 'MM-YY',
         'aria-label': 'Expiry',
     }
+};
+
+export const EmptyUntilFirstDigit: Story = {
+    args: {
+        template: '(ddd) ddd-dddd',
+        placeholder: '(___) ___-____',
+        showMaskWhenEmpty: false,
+        'aria-label': 'Phone number',
+    },
+    parameters: {
+        docs: {
+            description: {
+                story: 'With `showMaskWhenEmpty={false}` the field stays empty until the first digit, and `placeholder` is shown as the native placeholder.',
+            },
+        },
+    },
+    play: async ({ canvasElement }) => {
+        const canvas = within(canvasElement);
+        const input = canvas.getByRole('textbox', { name: /Phone number/i });
+        expect(input).toHaveValue('');
+        expect(input).toHaveAttribute('placeholder', '(___) ___-____');
+        await userEvent.type(input, '1');
+        expect(input).toHaveValue('(1__) ___-____');
+        await userEvent.keyboard('{Backspace}');
+        expect(input).toHaveValue('');
+    }
+};
+
+export const PhoneKeypad: Story = {
+    args: {
+        template: '(ddd) ddd-dddd',
+        placeholder: '(___) ___-____',
+        type: 'tel',
+        inputMode: 'tel',
+        autoComplete: 'tel',
+        'aria-label': 'Phone number',
+    },
+    parameters: {
+        docs: {
+            description: {
+                story: 'Both components default to `inputMode="numeric"`. For phone numbers, `type="tel"`, `inputMode="tel"` and `autoComplete="tel"` give the phone keypad and phone autofill. Never use `type="number"`.',
+            },
+        },
+    },
 };
 
 // --- Group 2: State Management ---

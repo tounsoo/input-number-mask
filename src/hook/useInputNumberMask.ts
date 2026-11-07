@@ -25,8 +25,7 @@ export interface UseInputNumberMaskProps {
     keepPosition?: boolean;
 
     /**
-     * Callback with the input value.
-     * Triggered only on user interaction.
+     * Called when the user changes the value, with the formatted value.
      */
     onValueChange?: (value: string) => void;
 
