@@ -14,46 +14,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT }}
-      
+
+      # Reads the pnpm version from packageManager in package.json
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.23.0
-      
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      # Node 24 bundles npm 11, which supports npm trusted publishing (needs npm 11.5.1+).
+      # No dependency cache here: this job publishes, so it installs from a clean store.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20'
-      
-      - name: Update npm to latest version
-        run: npm install -g npm@latest
-      
-      - name: Get pnpm store directory
-        shell: bash
+          node-version: '24'
+
+      - name: Check npm supports trusted publishing
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
+          npm --version
+          node -e "const [a, b, c] = process.argv[1].split('.').map(Number); if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) { console.error('npm ' + process.argv[1] + ' is older than 11.5.1, which trusted publishing needs'); process.exit(1) }" "$(npm --version)"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build Library
         run: pnpm build:lib
-      
+
+      # v1 is the line for Changesets v2 (@changesets/cli 2.x); v2 of the action needs Changesets v3.
       - name: Create Release Pull Request
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           title: 'chore: version packages'
           commit: 'chore: version packages'
@@ -63,7 +54,7 @@ jobs:
           publish: pnpm run release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
-      
+
       - name: Push Git Tags
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: git push --follow-tags origin main
