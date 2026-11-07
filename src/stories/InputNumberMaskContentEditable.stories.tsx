@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { InputNumberMaskContentEditable } from '../component/InputNumberMaskContentEditable';
 import { useState } from 'react';
 

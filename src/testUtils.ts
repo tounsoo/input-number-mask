@@ -1,4 +1,14 @@
 import { expect } from 'vitest';
+import type { UserEvent } from '@testing-library/user-event';
+
+/** Globals the CSS Custom Highlight API adds. jsdom provides neither. */
+export type HighlightApiGlobals = {
+    CSS?: { highlights?: Map<string, unknown> };
+    Highlight?: unknown;
+};
+
+/** Typed access to the Highlight API globals, for mocking them in tests. */
+export const highlightApiGlobals = (target: object = globalThis) => target as HighlightApiGlobals;
 
 export const getCursorPosition = (element: HTMLElement) => {
     const selection = window.getSelection();
@@ -19,7 +29,7 @@ export const getCursorPosition = (element: HTMLElement) => {
  * @param text - The text to type
  * @param expectedCursors - Array of expected cursor positions after each character
  */
-export const typeAndCheckCursor = async (user: any, input: HTMLElement, text: string, expectedCursors: number[]) => {
+export const typeAndCheckCursor = async (user: UserEvent, input: HTMLElement, text: string, expectedCursors: number[]) => {
     const isContentEditable = input.hasAttribute('contenteditable');
 
     for (let i = 0; i < text.length; i++) {
