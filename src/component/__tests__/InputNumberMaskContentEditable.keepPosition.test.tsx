@@ -3,11 +3,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { InputNumberMaskContentEditable } from '../InputNumberMaskContentEditable';
+import { highlightApiGlobals } from '../../testUtils';
 
 // Mock Highlight API if not available in jsdom
 if (typeof window !== 'undefined' && !window.CSS) {
-    (window as any).CSS = { highlights: new Map() };
-    (window as any).Highlight = class { };
+    const globals = highlightApiGlobals(window);
+    globals.CSS = { highlights: new Map() };
+    globals.Highlight = class { };
 }
 
 describe('InputNumberMaskContentEditable KeepPosition', () => {

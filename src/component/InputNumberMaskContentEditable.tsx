@@ -141,7 +141,6 @@ export const InputNumberMaskContentEditable = ({
         if (typeof ref === 'function') {
             ref(maskRef.current);
         } else if (ref) {
-            // @ts-ignore: Mutable ref object
             (ref as MutableRefObject<HTMLDivElement | null>).current = maskRef.current;
         }
     }, [maskRef, ref]);
