@@ -113,7 +113,6 @@ export const InputNumberMask = ({
         if (typeof ref === 'function') {
             ref(maskRef.current);
         } else if (ref) {
-            // @ts-ignore: Mutable ref object
             (ref as RefObject<HTMLInputElement | null>).current = maskRef.current;
         }
     }, [maskRef, ref]);
