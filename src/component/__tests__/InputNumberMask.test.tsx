@@ -74,7 +74,9 @@ describe('InputNumberMask Component', () => {
             // Wait for requestAnimationFrame restoration
             await screen.findByDisplayValue('12-'); // ensuring render cycle?
             // Actually waitFor is better
-            await new Promise(resolve => setTimeout(resolve, 0)); // tick
+            // The hook restores the caret in the next animation frame. Wait for it, so
+            // it can't land after the selection set below.
+            await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)));
             expect(input.selectionStart).toBe(3); // Should remain at end
 
             // Move cursor to middle '1|2-' and type 'b'

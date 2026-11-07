@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type HTMLAttributes, type Ref, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type HTMLAttributes, type Ref } from 'react';
 import { useContentEditableMask } from '../hook/useContentEditableMask';
 import { cleanInput, formatWithMask } from '../utils/maskUtils';
 import tokens from './styles.json';
@@ -20,6 +20,11 @@ const baseStyles = `
     .input-number-mask-content-editable:focus {
         border-color: ${t.focus.borderColor.$value};
         box-shadow: 0 0 0 ${t.focus.ringWidth.$value} ${t.focus.ringColor.$value};
+    }
+    .input-number-mask-content-editable[aria-placeholder]:empty::before {
+        content: attr(aria-placeholder);
+        color: var(--input-number-mask-placeholder-color, #999);
+        pointer-events: none;
     }
 `;
 
@@ -78,6 +83,17 @@ export interface InputNumberMaskContentEditableCoreProps {
      * Name for the hidden input field.
      */
     name?: string;
+
+    /**
+     * If true, an empty field shows the template's literals and `placeholder`
+     * as its text.
+     *
+     * If false, the field stays empty until the first digit, `placeholder` is
+     * shown as a native-style placeholder (and set as `aria-placeholder`), and the
+     * hidden input submits `""` while empty.
+     * @default true
+     */
+    showMaskWhenEmpty?: boolean;
 }
 export interface InputNumberMaskContentEditableProps extends InputNumberMaskContentEditableCoreProps, Omit<HTMLAttributes<HTMLDivElement>, 'defaultValue' | 'onChange' | 'onInput' | 'contentEditable' | 'suppressContentEditableWarning' | 'children' | 'dangerouslySetInnerHTML' | 'inputMode'> {
     /**
@@ -101,6 +117,8 @@ export const InputNumberMaskContentEditable = ({
     style,
     name,
     inputMode = 'numeric',
+    showMaskWhenEmpty = true,
+    className,
     ref,
     ...props
 }: InputNumberMaskContentEditableProps & { ref?: Ref<HTMLDivElement> }) => {
@@ -134,6 +152,7 @@ export const InputNumberMaskContentEditable = ({
         template,
         placeholder,
         keepPosition,
+        showMaskWhenEmpty,
         value: valueForHook,
         onValueChange: (val) => {
             // Update internal state for uncontrolled mode
@@ -145,13 +164,17 @@ export const InputNumberMaskContentEditable = ({
         }
     });
 
-    // Sync external ref if provided
-    useEffect(() => {
-        if (typeof ref === 'function') {
-            ref(maskRef.current);
-        } else if (ref) {
-            (ref as MutableRefObject<HTMLDivElement | null>).current = maskRef.current;
-        }
+    // Point both the hook's ref and the caller's ref at the element, and clear them on unmount.
+    const mergedRef = useCallback((node: HTMLDivElement | null) => {
+        maskRef.current = node;
+        const cleanup = typeof ref === 'function' ? ref(node) : undefined;
+        if (ref && typeof ref === 'object') ref.current = node;
+        return () => {
+            maskRef.current = null;
+            if (typeof cleanup === 'function') cleanup();
+            else if (typeof ref === 'function') ref(null);
+            else if (ref) ref.current = null;
+        };
     }, [maskRef, ref]);
 
     // Unique ID for Highlight API (stable per instance)
@@ -239,20 +262,26 @@ export const InputNumberMaskContentEditable = ({
     }, [maskValue, template, placeholder, maskRef, highlightName, placeholderColor]);
 
     const finalValue = returnRawValue ? hookRawValue : maskValue;
+    const nativePlaceholder = !showMaskWhenEmpty && placeholder ? placeholder : undefined;
+    const finalStyle = nativePlaceholder && placeholderColor
+        ? { ...style, '--input-number-mask-placeholder-color': placeholderColor } as CSSProperties
+        : style;
 
     return (
         <>
-            <style>{baseStyles}</style>
+            {/* React 19 hoists this to <head> once, however many fields render. */}
+            <style href="input-number-mask-content-editable" precedence="default">{baseStyles}</style>
             <div
                 role="textbox"
                 contentEditable
                 tabIndex={0}
                 suppressContentEditableWarning
-                className={`input-number-mask-content-editable ${props.className || ''}`}
-                style={style}
+                aria-placeholder={nativePlaceholder}
                 {...props}
+                className={className ? `input-number-mask-content-editable ${className}` : 'input-number-mask-content-editable'}
+                style={finalStyle}
                 inputMode={inputMode}
-                ref={maskRef}
+                ref={mergedRef}
             />
             <input type="hidden" name={name} value={finalValue} />
         </>

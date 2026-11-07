@@ -1,19 +1,60 @@
 import { flushSync } from 'react-dom';
 import { useEffect, useRef, useState, useLayoutEffect, useCallback } from 'react';
-import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, normalizeDigits, diffComposition, applyCompositionChange } from '../utils/maskUtils';
+import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, normalizeDigits, diffComposition, applyCompositionChange, isFocused } from '../utils/maskUtils';
 
 export interface UseContentEditableMaskProps {
+    /**
+     * The mask template. 'd' represents a digit slot.
+     * All other characters are treated as literals.
+     * @example "+1 (ddd) ddd-dddd" for US phone numbers
+     */
     template: string;
+    /**
+     * Optional full-length placeholder shown in empty slots.
+     * Should match the template length.
+     * @example "mm/dd/yyyy" for a date mask
+     */
     placeholder?: string;
+    /**
+     * If true, deletion replaces with placeholder char
+     * instead of shifting subsequent digits left.
+     * @default false
+     */
     keepPosition?: boolean;
+    /**
+     * Callback with the formatted value.
+     * Triggered only on user interaction.
+     */
     onValueChange?: (value: string) => void;
+    /**
+     * Controlled value. The hook will sync its internal state to this value.
+     */
     value?: string;
+    /**
+     * If true, an empty field shows the template's literals and placeholder.
+     * If false, the value and the element's text stay `""` until the first digit.
+     * @default true
+     */
+    showMaskWhenEmpty?: boolean;
 }
 
 export interface UseContentEditableMaskReturn {
+    /** Ref to attach to the contenteditable element */
     ref: React.RefObject<HTMLDivElement | null>;
+    /**
+     * The formatted value shown in the element
+     * @example "+1 (234) 567-8900"
+     */
     value: string;
+    /**
+     * Alias for `value`.
+     * @deprecated Use `value` instead.
+     */
     displayValue: string;
+    /**
+     * The unmasked digits only
+     * @example "1234567890"
+     */
     rawValue: string;
 }
 
@@ -23,6 +64,7 @@ export function useContentEditableMask({
     keepPosition = false,
     value: controlledValue,
     onValueChange,
+    showMaskWhenEmpty = true,
 }: UseContentEditableMaskProps): UseContentEditableMaskReturn {
 
     const [value, setValue] = useState(() => {
@@ -46,6 +88,13 @@ export function useContentEditableMask({
     // event or the next task, whichever comes first, and masks the final text.
     const pendingCommitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const commitRef = useRef<() => void>(() => { });
+
+    // Internal state always holds the full mask; an empty field can show "" instead.
+    const toDisplay = useCallback(
+        (next: string) => (showMaskWhenEmpty || cleanInput(next, template).length > 0 ? next : ''),
+        [showMaskWhenEmpty, template],
+    );
+    const displayValue = toDisplay(value);
 
     useEffect(() => () => {
         if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
@@ -120,13 +169,15 @@ export function useContentEditableMask({
 
     // Update DOM content when value changes
     useLayoutEffect(() => {
-        if (ref.current && ref.current.textContent !== value) {
-            ref.current.textContent = value;
+        if (ref.current && ref.current.textContent !== displayValue) {
+            ref.current.textContent = displayValue;
         }
-    }, [value]);
+    }, [displayValue]);
 
     useLayoutEffect(() => {
-        if (ref.current && cursor !== null) {
+        // Only move the caret in the focused element, so a controlled update
+        // doesn't move the document's selection somewhere else.
+        if (ref.current && cursor !== null && isFocused(ref.current)) {
             // Restore cursor
             setCaretPosition(ref.current, cursor);
         }
@@ -172,7 +223,7 @@ export function useContentEditableMask({
 
                 if (result) {
                     setValue(result.value);
-                    onValueChange?.(result.value);
+                    onValueChange?.(toDisplay(result.value));
                     setCursor(result.cursor);
                 }
             }
@@ -195,7 +246,7 @@ export function useContentEditableMask({
 
                     if (result) {
                         setValue(result.value);
-                        onValueChange?.(result.value);
+                        onValueChange?.(toDisplay(result.value));
                         setCursor(result.cursor);
                     }
 
@@ -213,7 +264,7 @@ export function useContentEditableMask({
 
                     if (result) {
                         setValue(result.value);
-                        onValueChange?.(result.value);
+                        onValueChange?.(toDisplay(result.value));
                         setCursor(result.cursor);
                     }
                 }
@@ -246,16 +297,23 @@ export function useContentEditableMask({
             // The IME wrote straight into the DOM. Apply what it changed as one edit
             // of the pre-composition value, so the text goes through the mask.
             const text = el.textContent || '';
-            const change = diffComposition(before.value, text, before.start, before.end);
-            const result = applyCompositionChange(before.value, template, placeholder, change, keepPosition);
+            // From an empty field ("" shown because showMaskWhenEmpty is off) the
+            // whole text goes into an empty mask.
+            const fromEmpty = before.value === '';
+            const baseValue = fromEmpty ? formatWithMask('', template, placeholder) : before.value;
+            const change = fromEmpty
+                ? { start: 0, end: 0, text }
+                : diffComposition(before.value, text, before.start, before.end);
+            const result = applyCompositionChange(baseValue, template, placeholder, change, keepPosition);
+            const shown = toDisplay(result.value);
 
             // Write the DOM now: React state may not change (nothing kept), and then
             // no effect would remove the composed text.
-            if (el.textContent !== result.value) el.textContent = result.value;
+            if (el.textContent !== shown) el.textContent = shown;
             setCaretPosition(el, result.cursor);
             setValue(result.value);
             setCursor(result.cursor);
-            if (result.value !== before.value) onValueChange?.(result.value);
+            if (result.value !== baseValue) onValueChange?.(shown);
         };
         commitRef.current = commitComposition;
 
@@ -292,14 +350,14 @@ export function useContentEditableMask({
             el.removeEventListener('compositionend', handleCompositionEnd);
             el.removeEventListener('focus', handleFocus);
         };
-    }, [value, template, placeholder, keepPosition, onValueChange, getSelectionIndices, setCaretPosition]);
+    }, [value, template, placeholder, keepPosition, onValueChange, getSelectionIndices, setCaretPosition, toDisplay]);
 
     const rawValue = cleanInput(value, template);
 
     return {
         ref,
-        value,
-        displayValue: value,
+        value: displayValue,
+        displayValue,
         rawValue
     };
 }

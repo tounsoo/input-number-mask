@@ -427,3 +427,13 @@ export const getCursorPosAfterFormat = (
 
     return newCursor;
 };
+
+/**
+ * True when `el` has focus, also inside a shadow root or another document,
+ * where `document.activeElement` points at the host instead.
+ */
+export const isFocused = (el: Element | null): boolean => {
+    if (!el) return false;
+    const root = el.getRootNode() as Document | ShadowRoot;
+    return (root.activeElement ?? null) === el;
+};

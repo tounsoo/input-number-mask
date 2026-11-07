@@ -1,5 +1,6 @@
 // Checks that the built package exposes the public API in all three places a
 // consumer can reach it: the ESM entry, the CJS entry and both type entries.
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -21,6 +22,12 @@ const expectExact = (label, actual, expected) => {
     if (missing.length) failures.push(`${label} is missing: ${missing.join(', ')}`);
     if (extra.length) failures.push(`${label} has unexpected exports: ${extra.join(', ')}`);
 };
+
+// Both entries must open with the directive so React Server Components treat them as client code.
+for (const file of ['dist/index.mjs', 'dist/index.cjs']) {
+    const code = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    if (!/^["']use client["'];/.test(code)) failures.push(`${file} doesn't start with "use client"`);
+}
 
 const esm = await import('../dist/index.mjs');
 expectExact('dist/index.mjs', Object.keys(esm), values);
@@ -50,4 +57,4 @@ if (failures.length) {
     console.error(failures.map((f) => `✗ ${f}`).join('\n'));
     process.exit(1);
 }
-console.log(`✓ ${values.length} values and ${types.length} types exported from ESM, CJS and both type entries`);
+console.log(`✓ ${values.length} values and ${types.length} types exported from ESM, CJS and both type entries; both entries are "use client"`);
