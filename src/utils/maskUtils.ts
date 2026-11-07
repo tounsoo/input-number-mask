@@ -237,6 +237,86 @@ export const isMatchWithMask = (rawValue: string, template: string, placeholder?
 };
 
 // New shared utility
+/**
+ * Whether `value` lines up with the template one character per position: each
+ * literal is the template's own character and each slot holds a digit or its
+ * placeholder. The hooks keep their value formatted, so this holds outside of
+ * an IME composition.
+ */
+const isAlignedWithMask = (value: string, template: string, placeholder?: string): boolean => {
+    if (value.length > template.length) return false;
+    for (let i = 0; i < value.length; i++) {
+        const char = value[i];
+        if (template[i] === 'd') {
+            const pChar = placeholder && i < placeholder.length ? placeholder[i] : '_';
+            if (!isDigit(char) && char !== pChar && char !== '_') return false;
+        } else if (char !== template[i]) {
+            return false;
+        }
+    }
+    return true;
+};
+
+/** The digits in the slots of an aligned value between `from` and `to`. */
+const slotDigits = (value: string, template: string, from: number, to: number): string => {
+    let out = '';
+    for (let i = Math.max(0, from); i < Math.min(to, value.length); i++) {
+        if (template[i] === 'd' && isDigit(value[i])) out += value[i];
+    }
+    return out;
+};
+
+/**
+ * The digits of inserted text that fill slots, read against the template from
+ * `start`. A literal digit of the template that the text repeats in place (the
+ * country code in a pasted `15551234567` for `+1 (ddd) ddd-dddd`) is dropped.
+ * A single typed character always counts, so typing 1 still types a 1.
+ */
+const insertedSlotDigits = (text: string, template: string, start: number): string => {
+    if (text.length < 2) return text;
+    let out = '';
+    let p = start;
+    for (const ch of text) {
+        while (p < template.length && template[p] !== 'd' && !isDigit(template[p])) p++;
+        if (p >= template.length || template[p] === 'd') {
+            out += ch;
+            p++;
+        } else if (template[p] === ch) {
+            p++;
+        } else {
+            out += ch;
+            while (p < template.length && template[p] !== 'd') p++;
+            p++;
+        }
+    }
+    return out;
+};
+
+/**
+ * Replaces the range `start`-`end` of an aligned value with `digits` by working
+ * on the slot digits instead of re-parsing the edited text. Re-parsing reads
+ * literal digits of the template (the `1` in `+1 (ddd)`) as typed digits once an
+ * edit shifts them out of place. Returns null when the value isn't aligned.
+ */
+const spliceSlotDigits = (
+    currentValue: string,
+    template: string,
+    placeholder: string | undefined,
+    start: number,
+    end: number,
+    digits: string
+): { value: string; digitsBeforeCursor: number } | null => {
+    if (!isAlignedWithMask(currentValue, template, placeholder)) return null;
+    const slotCount = template.split('').filter((c) => c === 'd').length;
+    const before = slotDigits(currentValue, template, 0, start);
+    const after = slotDigits(currentValue, template, end, currentValue.length);
+    const newDigits = (before + digits + after).slice(0, slotCount);
+    return {
+        value: formatWithMask(newDigits, template, placeholder),
+        digitsBeforeCursor: Math.min(before.length + digits.length, slotCount),
+    };
+};
+
 export const calculateMaskState = (
     currentValue: string,
     template: string,
@@ -263,7 +343,18 @@ export const calculateMaskState = (
             }
         }
 
-        // Standard insertion
+        // Standard insertion. Digits go straight into the slots; text with other
+        // characters (a pasted formatted number) is parsed as before.
+        if (/^\d*$/.test(char)) {
+            const spliced = spliceSlotDigits(currentValue, template, placeholder, start, end, insertedSlotDigits(char, template, start));
+            if (spliced) {
+                return {
+                    value: spliced.value,
+                    cursor: getCursorPosAfterFormat(spliced.value, template, spliced.digitsBeforeCursor),
+                };
+            }
+        }
+
         let newValRaw = currentValue;
         if (isSelection) {
             newValRaw = currentValue.slice(0, start) + char + currentValue.slice(end);
@@ -291,6 +382,8 @@ export const calculateMaskState = (
                 const res = applyKeepPositionChange(currentValue, template, placeholder, start, end, '');
                 return res;
             } else {
+                const spliced = spliceSlotDigits(currentValue, template, placeholder, start, end, '');
+                if (spliced) return { value: spliced.value, cursor: start };
                 const newValRaw = currentValue.slice(0, start) + currentValue.slice(end);
                 const newDigits = cleanInput(newValRaw, template);
                 const formatted = formatWithMask(newDigits, template, placeholder);
@@ -316,6 +409,8 @@ export const calculateMaskState = (
             const newVal = currentValue.substring(0, deleteIndex) + pChar + currentValue.substring(deleteIndex + 1);
             return { value: newVal, cursor: deleteIndex };
         } else {
+            const spliced = spliceSlotDigits(currentValue, template, placeholder, deleteIndex, deleteIndex + 1, '');
+            if (spliced) return { value: spliced.value, cursor: deleteIndex };
             const newValRaw = currentValue.slice(0, deleteIndex) + currentValue.slice(deleteIndex + 1);
             const newDigits = cleanInput(newValRaw, template);
             const formatted = formatWithMask(newDigits, template, placeholder);
@@ -329,6 +424,8 @@ export const calculateMaskState = (
                 const res = applyKeepPositionChange(currentValue, template, placeholder, start, end, '');
                 return res;
             } else {
+                const spliced = spliceSlotDigits(currentValue, template, placeholder, start, end, '');
+                if (spliced) return { value: spliced.value, cursor: start };
                 const newValRaw = currentValue.slice(0, start) + currentValue.slice(end);
                 const newDigits = cleanInput(newValRaw, template);
                 const formatted = formatWithMask(newDigits, template, placeholder);
@@ -353,6 +450,8 @@ export const calculateMaskState = (
             const newVal = currentValue.substring(0, deleteIndex) + pChar + currentValue.substring(deleteIndex + 1);
             return { value: newVal, cursor: start };
         } else {
+            const spliced = spliceSlotDigits(currentValue, template, placeholder, deleteIndex, deleteIndex + 1, '');
+            if (spliced) return { value: spliced.value, cursor: start };
             const newValRaw = currentValue.slice(0, deleteIndex) + currentValue.slice(deleteIndex + 1);
             const newDigits = cleanInput(newValRaw, template);
             const formatted = formatWithMask(newDigits, template, placeholder);
