@@ -1,5 +1,5 @@
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { useState } from 'react';
@@ -226,5 +226,79 @@ describe('useContentEditableMask DOM Interactions', () => {
         firePaste(input, '');
 
         expect(input.textContent).toBe('12-34');
+    });
+});
+
+const flushCommit = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+describe('useContentEditableMask with full-width digits and IMEs', () => {
+    it('masks full-width digits inserted as text', () => {
+        render(<TestContentEditable template="dd-dd" />);
+        const input = screen.getByLabelText('masked-input');
+
+        fireEvent(input, new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: '１' }));
+
+        expect(input.textContent).toBe('1');
+    });
+
+    it("doesn't cancel composition input and masks the text after compositionend", async () => {
+        render(<TestContentEditable template="dd-dd" />);
+        const input = screen.getByLabelText('masked-input');
+
+        fireEvent.compositionStart(input);
+        const deleteEvent = new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'deleteCompositionText', isComposing: true });
+        fireEvent(input, deleteEvent);
+        expect(deleteEvent.defaultPrevented).toBe(false);
+
+        // The IME writes the composed text into the DOM itself.
+        input.textContent = '１２';
+        fireEvent.compositionEnd(input);
+        await flushCommit();
+
+        expect(input.textContent).toBe('12-');
+    });
+
+    it('restores the DOM when the committed text has no digits', async () => {
+        render(<TestContentEditable template="dd-dd" initialValue="12" />);
+        const input = screen.getByLabelText('masked-input');
+        document.getSelection()?.collapse(input.firstChild, 3);
+
+        fireEvent.compositionStart(input);
+        input.textContent = '12-한';
+        fireEvent.compositionEnd(input);
+        await flushCommit();
+
+        expect(input.textContent).toBe('12-');
+    });
+
+    it('masks text the browser inserts after compositionend once', async () => {
+        render(<TestContentEditable template="dd-dd" />);
+        const input = screen.getByLabelText('masked-input');
+
+        fireEvent.compositionStart(input);
+        input.textContent = '１';
+        fireEvent.compositionEnd(input);
+        // Safari writes the committed text after compositionend.
+        const late = new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromComposition', data: '１２' });
+        fireEvent(input, late);
+        expect(late.defaultPrevented).toBe(false);
+        input.textContent = '１２';
+        fireEvent(input, new InputEvent('input', { bubbles: true, inputType: 'insertFromComposition', data: '１２' }));
+        await flushCommit();
+
+        expect(input.textContent).toBe('12-');
+    });
+
+    it('keeps the gaps of a keepPosition value through a commit', async () => {
+        render(<TestContentEditable template="dd/dd" placeholder="mm/yy" keepPosition initialValue="mm/3y" />);
+        const input = screen.getByLabelText('masked-input');
+        document.getSelection()?.collapse(input.firstChild, 0);
+
+        fireEvent.compositionStart(input);
+        input.textContent = '２mm/3y';
+        fireEvent.compositionEnd(input);
+        await flushCommit();
+
+        expect(input.textContent).toBe('2m/3y');
     });
 });
