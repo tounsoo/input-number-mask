@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react';
-import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit, getCursorPosAfterFormat, normalizeDigits, diffComposition, applyCompositionChange } from '../utils/maskUtils';
+import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit, getCursorPosAfterFormat, normalizeDigits, diffComposition, applyCompositionChange, isFocused } from '../utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
     /**
@@ -123,7 +123,7 @@ export function useInputNumberMask({
         if (composing) return;
         // Only move the caret in the focused input: Safari can move focus to an
         // input when setSelectionRange is called on it, e.g. on a controlled update.
-        if (ref.current && cursor !== null && document.activeElement === ref.current) {
+        if (ref.current && cursor !== null && isFocused(ref.current)) {
             ref.current.setSelectionRange(cursor, cursor);
         }
     }, [cursor, value, composing]);
@@ -241,7 +241,7 @@ export function useInputNumberMask({
                     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
                     rafRef.current = requestAnimationFrame(() => {
                         rafRef.current = null;
-                        if (document.activeElement === input) input.setSelectionRange(restorePos, restorePos);
+                        if (isFocused(input)) input.setSelectionRange(restorePos, restorePos);
                     });
                     return;
                 }
@@ -267,6 +267,10 @@ export function useInputNumberMask({
                 start: input.selectionStart ?? 0,
                 end: input.selectionEnd ?? 0,
             };
+            // While composing, state mirrors the text the IME owns. Start the mirror
+            // from what the input shows, so a field shown as "" (showMaskWhenEmpty
+            // off) isn't filled with the empty mask mid-composition.
+            setValue(input.value);
             setComposing(true);
         };
 

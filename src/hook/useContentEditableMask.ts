@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { useEffect, useRef, useState, useLayoutEffect, useCallback } from 'react';
-import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, normalizeDigits, diffComposition, applyCompositionChange } from '../utils/maskUtils';
+import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, normalizeDigits, diffComposition, applyCompositionChange, isFocused } from '../utils/maskUtils';
 
 export interface UseContentEditableMaskProps {
     /**
@@ -177,7 +177,7 @@ export function useContentEditableMask({
     useLayoutEffect(() => {
         // Only move the caret in the focused element, so a controlled update
         // doesn't move the document's selection somewhere else.
-        if (ref.current && cursor !== null && document.activeElement === ref.current) {
+        if (ref.current && cursor !== null && isFocused(ref.current)) {
             // Restore cursor
             setCaretPosition(ref.current, cursor);
         }

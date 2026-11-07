@@ -94,17 +94,21 @@ describe('showMaskWhenEmpty', () => {
     });
 
     it('starts an IME composition from an empty field', async () => {
-        render(<InputNumberMask template="dd-dd" showMaskWhenEmpty={false} />);
+        render(<InputNumberMask template="dd-dd" placeholder="__-__" showMaskWhenEmpty={false} />);
         const input = screen.getByRole('textbox') as HTMLInputElement;
         input.focus();
 
         fireEvent.compositionStart(input);
+        // The field must stay as the IME left it, not be filled with the empty mask.
+        expect(input).toHaveValue('');
+
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '１２');
         fireEvent(input, new InputEvent('input', { bubbles: true, isComposing: true, inputType: 'insertCompositionText', data: '１２' }));
+        expect(input).toHaveValue('１２');
         fireEvent.compositionEnd(input);
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
-        expect(input).toHaveValue('12-');
+        expect(input).toHaveValue('12-__');
     });
 });
 
@@ -177,22 +181,64 @@ describe('styles and classes', () => {
 });
 
 describe('caret handling', () => {
-    it("doesn't move the caret of an input that isn't focused", () => {
-        const spy = vi.spyOn(HTMLInputElement.prototype, 'setSelectionRange');
-        const { rerender } = render(<InputNumberMask template="dd-dd" value="12" />);
-        rerender(<InputNumberMask template="dd-dd" value="1234" />);
+    it("doesn't move the caret of an input that isn't focused", async () => {
+        const user = userEvent.setup();
+        const Controlled = () => {
+            const [value, setValue] = useState('');
+            return (
+                <>
+                    <InputNumberMask template="dd-dd" value={value} onValueChange={setValue} />
+                    <button type="button" onClick={() => setValue('1234')}>fill</button>
+                </>
+            );
+        };
+        render(<Controlled />);
+        const input = screen.getByRole('textbox') as HTMLInputElement;
+        await user.type(input, '12');
+
+        // Clicking the button moves focus away, then sets the value from outside.
+        // user-event patches setSelectionRange on the element, so spy there.
+        const spy = vi.spyOn(input, 'setSelectionRange');
+        await user.click(screen.getByRole('button'));
+        expect(input).toHaveValue('12-34');
+        expect(input).not.toHaveFocus();
         expect(spy).not.toHaveBeenCalled();
-        expect(document.activeElement).not.toBe(screen.getByRole('textbox'));
+    });
+
+    it('moves the caret of a focused input inside a shadow root', async () => {
+        const host = document.createElement('div');
+        document.body.append(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+        const container = document.createElement('div');
+        shadow.append(container);
+        const { unmount } = render(<InputNumberMask template="dd-dd-dd" defaultValue="1234" />, { container });
+        const input = container.querySelector('input') as HTMLInputElement;
+        input.focus();
+        expect(shadow.activeElement).toBe(input);
+
+        input.setSelectionRange(1, 1);
+        fireEvent.select(input);
+        // What the browser does when "9" is typed at offset 1 of "12-34-".
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '192-34-');
+        input.setSelectionRange(2, 2);
+        fireEvent(input, new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '9' }));
+
+        expect(input).toHaveValue('19-23-4');
+        expect(input.selectionStart).toBe(3);
+        unmount();
+        host.remove();
     });
 
     it('cancels a pending caret restore on unmount', async () => {
         const user = userEvent.setup();
-        const cancel = vi.spyOn(window, 'cancelAnimationFrame');
+        const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 4242);
+        const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { });
         const { unmount } = render(<InputNumberMask template="dd-dd" defaultValue="12" />);
         const input = screen.getByRole('textbox');
         // Typing a letter changes nothing, so the hook schedules a caret restore.
         await user.type(input, 'a');
+        expect(raf).toHaveBeenCalled();
         unmount();
-        expect(cancel).toHaveBeenCalled();
+        expect(cancel).toHaveBeenCalledWith(4242);
     });
 });
