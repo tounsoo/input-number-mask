@@ -20,6 +20,18 @@ const ControlledInput = ({ template, returnRawValue = false }: { template: strin
 
 describe('InputNumberMask Component', () => {
 
+    describe('inputMode', () => {
+        it('defaults to the numeric keyboard', () => {
+            render(<InputNumberMask template="dd-dd" />);
+            expect(screen.getByRole('textbox')).toHaveAttribute('inputmode', 'numeric');
+        });
+
+        it('lets the user override it', () => {
+            render(<InputNumberMask template="(ddd) ddd-dddd" inputMode="tel" />);
+            expect(screen.getByRole('textbox')).toHaveAttribute('inputmode', 'tel');
+        });
+    });
+
     describe('Uncontrolled Behavior', () => {
         it('renders with empty value by default', () => {
             render(<InputNumberMask template="dd-dd" />);

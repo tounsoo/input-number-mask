@@ -64,7 +64,15 @@ export interface InputNumberMaskCoreProps {
      */
     onValueChange?: (value: string) => void;
 }
-export interface InputNumberMaskProps extends InputNumberMaskCoreProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'placeholder' | 'onChange' | 'onInput' | 'dangerouslySetInnerHTML'> { }
+export interface InputNumberMaskProps extends InputNumberMaskCoreProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'placeholder' | 'onChange' | 'onInput' | 'dangerouslySetInnerHTML' | 'inputMode'> {
+    /**
+     * The virtual keyboard mobile browsers show. The mask accepts digits only,
+     * so it defaults to the numeric keypad. Pass `"tel"` for phone masks if you
+     * want the phone keypad, or any other value to override it.
+     * @default "numeric"
+     */
+    inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'];
+}
 
 export const InputNumberMask = ({
     template,
@@ -74,6 +82,7 @@ export const InputNumberMask = ({
     onValueChange,
     value: controlledValue,
     defaultValue,
+    inputMode = 'numeric',
     ref, // onChange was here
     ...props
 }: InputNumberMaskProps & { ref?: Ref<HTMLInputElement> }) => {
@@ -125,6 +134,7 @@ export const InputNumberMask = ({
             <style>{baseStyles}</style>
             <input
                 {...props}
+                inputMode={inputMode}
                 className={`input-number-mask ${props.className || ''}`}
                 name={visibleInputName}
                 ref={maskRef}

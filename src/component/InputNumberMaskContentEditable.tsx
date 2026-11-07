@@ -79,7 +79,15 @@ export interface InputNumberMaskContentEditableCoreProps {
      */
     name?: string;
 }
-export interface InputNumberMaskContentEditableProps extends InputNumberMaskContentEditableCoreProps, Omit<HTMLAttributes<HTMLDivElement>, 'defaultValue' | 'onChange' | 'onInput' | 'contentEditable' | 'suppressContentEditableWarning' | 'children' | 'dangerouslySetInnerHTML'> { }
+export interface InputNumberMaskContentEditableProps extends InputNumberMaskContentEditableCoreProps, Omit<HTMLAttributes<HTMLDivElement>, 'defaultValue' | 'onChange' | 'onInput' | 'contentEditable' | 'suppressContentEditableWarning' | 'children' | 'dangerouslySetInnerHTML' | 'inputMode'> {
+    /**
+     * The virtual keyboard mobile browsers show. The mask accepts digits only,
+     * so it defaults to the numeric keypad. Pass `"tel"` for phone masks if you
+     * want the phone keypad, or any other value to override it.
+     * @default "numeric"
+     */
+    inputMode?: HTMLAttributes<HTMLDivElement>['inputMode'];
+}
 
 export const InputNumberMaskContentEditable = ({
     template,
@@ -92,6 +100,7 @@ export const InputNumberMaskContentEditable = ({
     placeholderColor,
     style,
     name,
+    inputMode = 'numeric',
     ref,
     ...props
 }: InputNumberMaskContentEditableProps & { ref?: Ref<HTMLDivElement> }) => {
@@ -242,6 +251,7 @@ export const InputNumberMaskContentEditable = ({
                 className={`input-number-mask-content-editable ${props.className || ''}`}
                 style={style}
                 {...props}
+                inputMode={inputMode}
                 ref={maskRef}
             />
             <input type="hidden" name={name} value={finalValue} />
