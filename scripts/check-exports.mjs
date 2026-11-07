@@ -4,12 +4,14 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
-const values = ['InputNumberMask', 'InputNumberMaskContentEditable'];
+const values = ['InputNumberMask', 'InputNumberMaskContentEditable', 'useInputNumberMask', 'useContentEditableMask'];
 const types = [
     'InputNumberMaskProps',
     'InputNumberMaskContentEditableProps',
     'UseInputNumberMaskProps',
     'UseInputNumberMaskReturn',
+    'UseContentEditableMaskProps',
+    'UseContentEditableMaskReturn',
 ];
 
 const failures = [];
