@@ -49,3 +49,6 @@ jobs:
 
       - name: Build library
         run: pnpm build:lib
+
+      - name: Check package
+        run: pnpm check:package

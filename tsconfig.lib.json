@@ -14,12 +14,8 @@
         "verbatimModuleSyntax": false,
         "moduleDetection": "force",
         "jsx": "react-jsx",
-        /* Emit */
-        "outDir": "./dist",
-        "declaration": true,
-        "declarationMap": true,
-        "emitDeclarationOnly": false,
-        "noEmit": false,
+        /* Type-check only: vite emits the JS, rollup.config.dts.mjs bundles the declarations */
+        "noEmit": true,
         /* Linting */
         "strict": true,
         "noUnusedLocals": true,
@@ -27,9 +23,7 @@
         "noFallthroughCasesInSwitch": true
     },
     "include": [
-        "src/index.ts",
-        "src/useInputNumberMask.ts",
-        "src/utils/maskUtils.ts"
+        "src/index.ts"
     ],
     "exclude": [
         "src/**/*.test.ts",
