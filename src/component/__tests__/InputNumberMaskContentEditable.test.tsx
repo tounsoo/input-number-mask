@@ -2,12 +2,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { InputNumberMaskContentEditable } from '../InputNumberMaskContentEditable';
-import { typeAndCheckCursor, getCursorPosition } from '../../testUtils';
+import { typeAndCheckCursor, getCursorPosition, highlightApiGlobals } from '../../testUtils';
 
 // Mock Highlight API if not available in jsdom
 if (typeof window !== 'undefined' && !window.CSS) {
-    (window as any).CSS = { highlights: new Map() };
-    (window as any).Highlight = class { };
+    const globals = highlightApiGlobals(window);
+    globals.CSS = { highlights: new Map() };
+    globals.Highlight = class { };
 }
 
 describe('InputNumberMaskContentEditable', () => {
@@ -263,12 +264,13 @@ describe('InputNumberMaskContentEditable', () => {
     describe('Architecture & Integrations', () => {
         // Ensure CSS Highlight API is mocked for these tests
         beforeAll(() => {
-            if (typeof CSS === 'undefined') {
-                (global as any).CSS = { highlights: new Map() };
-                (global as any).Highlight = class { };
-            } else if (!CSS.highlights) {
-                (CSS as any).highlights = new Map();
-                (global as any).Highlight = class { };
+            const globals = highlightApiGlobals();
+            if (!globals.CSS) {
+                globals.CSS = { highlights: new Map() };
+                globals.Highlight = class { };
+            } else if (!globals.CSS.highlights) {
+                globals.CSS.highlights = new Map();
+                globals.Highlight = class { };
             }
         });
 
