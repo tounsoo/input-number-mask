@@ -17,6 +17,10 @@ export default defineConfig({
         rollupOptions: {
             external: ['react', 'react-dom', 'react/jsx-runtime'],
             output: {
+                // Every export uses state, effects or refs, so the package is client-only.
+                // Rollup drops module-level directives from the source, so the
+                // directive is added to each built entry instead.
+                banner: "'use client';",
                 globals: {
                     react: 'React',
                     'react-dom': 'ReactDOM',

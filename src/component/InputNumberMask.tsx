@@ -1,4 +1,4 @@
-import { useEffect, useState, type InputHTMLAttributes, type Ref, type RefObject } from 'react';
+import { useCallback, useState, type InputHTMLAttributes, type Ref } from 'react';
 import { useInputNumberMask } from '../hook/useInputNumberMask';
 import { cleanInput, formatWithMask } from '../utils/maskUtils';
 import tokens from './styles.json';
@@ -63,6 +63,18 @@ export interface InputNumberMaskCoreProps {
      * Callback with the input value.
      */
     onValueChange?: (value: string) => void;
+
+    /**
+     * If true, an empty field shows the template's literals and `placeholder`
+     * as its value (for example `(___) ___-____`).
+     *
+     * If false, the field stays empty until the first digit and `placeholder` is
+     * also passed to the input as its native placeholder. Native `required`
+     * validation, `:placeholder-shown` and screen readers then treat the field as
+     * empty, and an empty field submits `""`.
+     * @default true
+     */
+    showMaskWhenEmpty?: boolean;
 }
 export interface InputNumberMaskProps extends InputNumberMaskCoreProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'placeholder' | 'onChange' | 'onInput' | 'dangerouslySetInnerHTML' | 'inputMode'> {
     /**
@@ -83,6 +95,8 @@ export const InputNumberMask = ({
     value: controlledValue,
     defaultValue,
     inputMode = 'numeric',
+    showMaskWhenEmpty = true,
+    className,
     ref, // onChange was here
     ...props
 }: InputNumberMaskProps & { ref?: Ref<HTMLInputElement> }) => {
@@ -106,6 +120,7 @@ export const InputNumberMask = ({
         template,
         placeholder,
         keepPosition,
+        showMaskWhenEmpty,
         value: valueForHook,
         onValueChange: (val) => {
             // Update internal state for uncontrolled mode
@@ -117,13 +132,17 @@ export const InputNumberMask = ({
         }
     });
 
-    // Sync external ref if provided
-    useEffect(() => {
-        if (typeof ref === 'function') {
-            ref(maskRef.current);
-        } else if (ref) {
-            (ref as RefObject<HTMLInputElement | null>).current = maskRef.current;
-        }
+    // Point both the hook's ref and the caller's ref at the input, and clear them on unmount.
+    const mergedRef = useCallback((node: HTMLInputElement | null) => {
+        maskRef.current = node;
+        const cleanup = typeof ref === 'function' ? ref(node) : undefined;
+        if (ref && typeof ref === 'object') ref.current = node;
+        return () => {
+            maskRef.current = null;
+            if (typeof cleanup === 'function') cleanup();
+            else if (typeof ref === 'function') ref(null);
+            else if (ref) ref.current = null;
+        };
     }, [maskRef, ref]);
 
     const rawValue = cleanInput(maskValue, template);
@@ -131,13 +150,15 @@ export const InputNumberMask = ({
 
     return (
         <>
-            <style>{baseStyles}</style>
+            {/* React 19 hoists this to <head> once, however many inputs render. */}
+            <style href="input-number-mask" precedence="default">{baseStyles}</style>
             <input
                 {...props}
                 inputMode={inputMode}
-                className={`input-number-mask ${props.className || ''}`}
+                placeholder={showMaskWhenEmpty ? undefined : placeholder}
+                className={className ? `input-number-mask ${className}` : 'input-number-mask'}
                 name={visibleInputName}
-                ref={maskRef}
+                ref={mergedRef}
                 value={maskValue}
                 onChange={() => { }}
             />

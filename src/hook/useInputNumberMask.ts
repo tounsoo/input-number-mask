@@ -1,5 +1,5 @@
 import { flushSync } from 'react-dom';
-import { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { cleanInput, formatWithMask, isMatchWithMask, calculateMaskState, isDigit, getCursorPosAfterFormat, normalizeDigits, diffComposition, applyCompositionChange } from '../utils/maskUtils';
 
 export interface UseInputNumberMaskProps {
@@ -34,17 +34,28 @@ export interface UseInputNumberMaskProps {
      * Controlled value. The hook will sync its internal state to this value.
      */
     value?: string;
+
+    /**
+     * If true, an empty field shows the template's literals and placeholder
+     * (for example `(___) ___-____`). If false, the value stays `""` until the
+     * first digit, so native `required` validation, `:placeholder-shown` and
+     * screen readers treat the field as empty.
+     * @default true
+     */
+    showMaskWhenEmpty?: boolean;
 }
 
 export interface UseInputNumberMaskReturn {
-    /** 
-     * The raw value with formatting applied 
-     * @example "+1 (234) 567-8900" 
+    /**
+     * The formatted value to show in the input. While an IME is composing, it is
+     * the text as typed, unformatted.
+     * @example "+1 (234) 567-8900"
      */
     value: string;
-    /** 
-     * Deprecated: alias for value. The value to display in the input. 
-     * @example "+1 (234) 567-8900" 
+    /**
+     * Alias for `value`.
+     * @deprecated Use `value` instead.
+     * @example "+1 (234) 567-8900"
      */
     displayValue: string;
     /** 
@@ -64,6 +75,7 @@ export function useInputNumberMask({
     keepPosition = false,
     value: controlledValue,
     onValueChange,
+    showMaskWhenEmpty = true,
 }: UseInputNumberMaskProps): UseInputNumberMaskReturn {
 
     const [value, setValue] = useState(() => {
@@ -88,6 +100,14 @@ export function useInputNumberMask({
     // event or the next task, whichever comes first, and masks the final text.
     const pendingCommitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const commitRef = useRef<() => void>(() => { });
+    const rafRef = useRef<number | null>(null);
+
+    // Internal state always holds the full mask; an empty field can show "" instead.
+    const toDisplay = useCallback(
+        (next: string) => (showMaskWhenEmpty || cleanInput(next, template).length > 0 ? next : ''),
+        [showMaskWhenEmpty, template],
+    );
+    const displayValue = composing ? value : toDisplay(value);
 
     const formattedControlled = controlledValue !== undefined
         ? (keepPosition && isMatchWithMask(controlledValue, template, placeholder)
@@ -101,13 +121,17 @@ export function useInputNumberMask({
 
     useLayoutEffect(() => {
         if (composing) return;
-        if (ref.current && cursor !== null) {
+        // Only move the caret in the focused input: Safari can move focus to an
+        // input when setSelectionRange is called on it, e.g. on a controlled update.
+        if (ref.current && cursor !== null && document.activeElement === ref.current) {
             ref.current.setSelectionRange(cursor, cursor);
         }
     }, [cursor, value, composing]);
 
+    // Cancel a pending composition commit or caret restore when the input unmounts.
     useEffect(() => () => {
         if (pendingCommitRef.current !== null) clearTimeout(pendingCommitRef.current);
+        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     }, []);
 
     useLayoutEffect(() => {
@@ -151,7 +175,7 @@ export function useInputNumberMask({
 
                 if (result) {
                     setValue(result.value);
-                    onValueChange?.(result.value);
+                    onValueChange?.(toDisplay(result.value));
                     setCursor(result.cursor);
                 }
             }
@@ -198,7 +222,7 @@ export function useInputNumberMask({
 
                     if (result) {
                         setValue(result.value);
-                        onValueChange?.(result.value);
+                        onValueChange?.(toDisplay(result.value));
                         setCursor(result.cursor);
                         return;
                     }
@@ -214,14 +238,16 @@ export function useInputNumberMask({
 
                 if (newFormatted === value) {
                     const restorePos = selectionRef.current.start;
-                    requestAnimationFrame(() => {
-                        if (input) input.setSelectionRange(restorePos, restorePos);
+                    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+                    rafRef.current = requestAnimationFrame(() => {
+                        rafRef.current = null;
+                        if (document.activeElement === input) input.setSelectionRange(restorePos, restorePos);
                     });
                     return;
                 }
 
                 setValue(newFormatted);
-                onValueChange?.(newFormatted);
+                onValueChange?.(toDisplay(newFormatted));
 
                 const newCursor = getCursorPosAfterFormat(newFormatted, template, digitsBeforeCursor);
                 setCursor(newCursor);
@@ -255,18 +281,22 @@ export function useInputNumberMask({
 
             // Apply what the IME changed as one edit of the pre-composition value,
             // so keepPosition and the caret behave as they do for typing.
-            const base = before ?? { value: formatWithMask('', template, placeholder), start: 0, end: 0 };
-            const change = before
-                ? diffComposition(base.value, inputVal, base.start, base.end)
-                : { start: 0, end: 0, text: inputVal };
+            // From an empty field (no compositionstart seen, or "" shown because
+            // showMaskWhenEmpty is off) the whole text goes into an empty mask.
+            const fromEmpty = !before || before.value === '';
+            const base = fromEmpty ? { value: formatWithMask('', template, placeholder), start: 0, end: 0 } : before;
+            const change = fromEmpty
+                ? { start: 0, end: 0, text: inputVal }
+                : diffComposition(base.value, inputVal, base.start, base.end);
             const result = applyCompositionChange(base.value, template, placeholder, change, keepPosition);
 
-            if (input.value !== result.value) input.value = result.value;
+            const shown = toDisplay(result.value);
+            if (input.value !== shown) input.value = shown;
             input.setSelectionRange(result.cursor, result.cursor);
             updateSelection();
             setValue(result.value);
             setCursor(result.cursor);
-            if (result.value !== base.value) onValueChange?.(result.value);
+            if (result.value !== base.value) onValueChange?.(shown);
         };
         commitRef.current = commitComposition;
 
@@ -296,13 +326,13 @@ export function useInputNumberMask({
             input.removeEventListener('mouseup', updateSelection);
             input.removeEventListener('keyup', updateSelection);
         };
-    }, [value, template, placeholder, keepPosition, onValueChange]);
+    }, [value, template, placeholder, keepPosition, onValueChange, toDisplay]);
 
     const rawValue = cleanInput(value, template);
 
     return {
-        value,
-        displayValue: value,
+        value: displayValue,
+        displayValue,
         rawValue,
         ref
     };
