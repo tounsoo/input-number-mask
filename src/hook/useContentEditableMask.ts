@@ -126,7 +126,9 @@ export function useContentEditableMask({
             if (e.inputType === 'insertText' || e.inputType === 'insertFromPaste') {
                 e.preventDefault();
 
-                const data = e.data || '';
+                // For contenteditable, browsers leave `data` null on paste and put the
+                // pasted text in `dataTransfer` instead.
+                const data = e.data || e.dataTransfer?.getData('text/plain') || '';
                 const { start, end } = getSelectionIndices(el);
 
                 // ContentEditable paste with multiple chars?

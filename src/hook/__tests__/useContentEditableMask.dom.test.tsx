@@ -184,4 +184,47 @@ describe('useContentEditableMask DOM Interactions', () => {
         // Logic: delete '1'. clean "234". format "23-4".
         expect(input.textContent).toBe('23-4');
     });
+
+    // Browsers leave `data` null for contenteditable paste and put the text in `dataTransfer`.
+    const firePaste = (target: HTMLElement, text: string) => {
+        const event = new InputEvent('beforeinput', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertFromPaste',
+            data: null
+        });
+        // jsdom doesn't implement DataTransfer, so stub the part the hook reads.
+        Object.defineProperty(event, 'dataTransfer', {
+            value: { getData: (format: string) => (format === 'text/plain' ? text : '') }
+        });
+        fireEvent(target, event);
+        return event;
+    };
+
+    it('reads pasted text from dataTransfer when data is null', () => {
+        render(<TestContentEditable template="(ddd) ddd-dddd" />);
+        const input = screen.getByLabelText('masked-input');
+        const textNode = input.firstChild;
+        if (textNode) {
+            document.getSelection()?.collapse(textNode, 0);
+        }
+
+        const event = firePaste(input, '(123) 456-7890');
+
+        expect(event.defaultPrevented).toBe(true);
+        expect(input.textContent).toBe('(123) 456-7890');
+    });
+
+    it('leaves the value alone when the paste has no text', () => {
+        render(<TestContentEditable template="dd-dd" initialValue="12-34" />);
+        const input = screen.getByLabelText('masked-input');
+        const textNode = input.firstChild;
+        if (textNode) {
+            document.getSelection()?.collapse(textNode, 5);
+        }
+
+        firePaste(input, '');
+
+        expect(input.textContent).toBe('12-34');
+    });
 });
