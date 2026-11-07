@@ -19,6 +19,16 @@ describe('InputNumberMaskContentEditable', () => {
         expect(input).toHaveAttribute('contenteditable', 'true');
     });
 
+    it('defaults to the numeric keyboard', () => {
+        render(<InputNumberMaskContentEditable template="dd-dd" />);
+        expect(screen.getByRole('textbox')).toHaveAttribute('inputmode', 'numeric');
+    });
+
+    it('lets the user override inputMode', () => {
+        render(<InputNumberMaskContentEditable template="(ddd) ddd-dddd" inputMode="tel" />);
+        expect(screen.getByRole('textbox')).toHaveAttribute('inputmode', 'tel');
+    });
+
     it('formats initial value correctly', () => {
         render(<InputNumberMaskContentEditable template="(ddd) ddd-dddd" defaultValue="1234567890" />);
         const input = screen.getByRole('textbox');
