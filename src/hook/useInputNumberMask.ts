@@ -233,7 +233,9 @@ export function useInputNumberMask({
             // own literal digits (the 1 in "+1 (ddd)") from being read as typed
             // digits when the caret was before them.
             const edit = (): { value: string; cursor: number } | null => {
-                if (typedChars < 0) return null;
+                // The caret has to sit right after the typed text, or the saved
+                // selection is stale and the edit can't be trusted.
+                if (typedChars < 0 || rawCursor !== prevStart + typedChars) return null;
                 if (inputVal.slice(0, prevStart) !== value.slice(0, prevStart)) return null;
                 if (inputVal.slice(prevStart + typedChars) !== value.slice(prevEnd)) return null;
                 return calculateMaskState(

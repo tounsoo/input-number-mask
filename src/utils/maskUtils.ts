@@ -267,6 +267,32 @@ const slotDigits = (value: string, template: string, from: number, to: number): 
 };
 
 /**
+ * The digits of inserted text that fill slots, read against the template from
+ * `start`. A literal digit of the template that the text repeats in place (the
+ * country code in a pasted `15551234567` for `+1 (ddd) ddd-dddd`) is dropped.
+ * A single typed character always counts, so typing 1 still types a 1.
+ */
+const insertedSlotDigits = (text: string, template: string, start: number): string => {
+    if (text.length < 2) return text;
+    let out = '';
+    let p = start;
+    for (const ch of text) {
+        while (p < template.length && template[p] !== 'd' && !isDigit(template[p])) p++;
+        if (p >= template.length || template[p] === 'd') {
+            out += ch;
+            p++;
+        } else if (template[p] === ch) {
+            p++;
+        } else {
+            out += ch;
+            while (p < template.length && template[p] !== 'd') p++;
+            p++;
+        }
+    }
+    return out;
+};
+
+/**
  * Replaces the range `start`-`end` of an aligned value with `digits` by working
  * on the slot digits instead of re-parsing the edited text. Re-parsing reads
  * literal digits of the template (the `1` in `+1 (ddd)`) as typed digits once an
@@ -320,7 +346,7 @@ export const calculateMaskState = (
         // Standard insertion. Digits go straight into the slots; text with other
         // characters (a pasted formatted number) is parsed as before.
         if (/^\d*$/.test(char)) {
-            const spliced = spliceSlotDigits(currentValue, template, placeholder, start, end, char);
+            const spliced = spliceSlotDigits(currentValue, template, placeholder, start, end, insertedSlotDigits(char, template, start));
             if (spliced) {
                 return {
                     value: spliced.value,

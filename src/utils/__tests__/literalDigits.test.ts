@@ -40,3 +40,30 @@ describe('calculateMaskState with literal digits in the template', () => {
         expect(calculateMaskState('12134', mid, undefined, 0, 2, 'deleteBackward')?.value).toBe('341');
     });
 });
+
+describe('pasting digits that repeat a literal digit of the template', () => {
+    const template = '+1 (ddd) ddd-dddd';
+
+    it('drops the country code from a pasted 11-digit number at the start', () => {
+        expect(calculateMaskState('+1 (', template, undefined, 0, 0, 'insert', '15551234567')?.value).toBe('+1 (555) 123-4567');
+        expect(calculateMaskState('+1 (', template, undefined, 0, 4, 'insert', '15551234567')?.value).toBe('+1 (555) 123-4567');
+    });
+
+    it('replaces a full selection with a pasted 11-digit number', () => {
+        expect(calculateMaskState('+1 (555) 123-4567', template, undefined, 0, 17, 'insert', '15559876543')?.value).toBe('+1 (555) 987-6543');
+        expect(calculateMaskState('+1 (___) ___-____', template, '+1 (___) ___-____', 0, 17, 'insert', '15551234567')?.value).toBe('+1 (555) 123-4567');
+    });
+
+    it('keeps a pasted number without the country code', () => {
+        expect(calculateMaskState('+1 (', template, undefined, 0, 0, 'insert', '555')?.value).toBe('+1 (555) ');
+        expect(calculateMaskState('+1 (', template, undefined, 0, 0, 'insert', '5551234567')?.value).toBe('+1 (555) 123-4567');
+    });
+
+    it('skips a literal digit between slots in pasted text', () => {
+        expect(calculateMaskState('', 'dd1dd', undefined, 0, 0, 'insert', '12134')?.value).toBe('12134');
+    });
+
+    it('still types a single 1 before the country code', () => {
+        expect(calculateMaskState('+1 (', template, undefined, 0, 0, 'insert', '1')?.value).toBe('+1 (1');
+    });
+});
