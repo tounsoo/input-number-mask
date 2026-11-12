@@ -1,0 +1,151 @@
+name: pstack update
+
+# Once a week, compares the pstack-claude copy in .claude/ with upstream. When
+# upstream has changed the copied files, it copies the new commit in and opens
+# one pull request from the pstack/update branch, or refreshes the one already
+# open. Threads use the checked-in copy and download nothing, so this is the
+# only place the copy changes on its own.
+on:
+  schedule:
+    - cron: '17 15 * * 1' # Mondays, 15:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Starts CI on the update branch: pushes made with the workflow token
+  # don't start workflows themselves.
+  actions: write
+
+concurrency:
+  group: pstack-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update pstack
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: pstack/update
+      GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        # bash with -eo pipefail, so a failing command in a pipe fails the step
+        shell: bash
+    steps:
+      # main even for a manual run started from another branch, so the update
+      # pull request carries only the update
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Compare the pin with upstream
+        id: check
+        run: |
+          status=0
+          sh .claude/update-pstack.sh --check > "$RUNNER_TEMP/check.txt" || status=$?
+          cat "$RUNNER_TEMP/check.txt"
+          case $status in
+            0) echo "changed=false" >> "$GITHUB_OUTPUT" ;;
+            10)
+              latest=$(sed -n 's/^latest: \([0-9a-f]\{40\}\)$/\1/p' "$RUNNER_TEMP/check.txt")
+              [ -n "$latest" ] || { echo "::error::--check reported a change but no upstream commit"; exit 1; }
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "latest=$latest" >> "$GITHUB_OUTPUT" ;;
+            11)
+              echo "::error::The pstack pin is ahead of upstream, off its default branch, or gone. Pick an upstream commit and run sh .claude/update-pstack.sh <commit> locally."
+              exit 1 ;;
+            *) exit "$status" ;;
+          esac
+
+      # Upstream reverted what the open pull request brings in, or the pin
+      # moved by hand, so that pull request no longer matches upstream.
+      - name: Close a stale update pull request
+        if: steps.check.outputs.changed == 'false'
+        run: |
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')
+          [ -z "$pr" ] || gh pr close "$pr" --comment "The copied files on main already match upstream, so this update is no longer needed."
+
+      - name: Copy the new commit in
+        if: steps.check.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          sh .claude/update-pstack.sh "$LATEST" > "$RUNNER_TEMP/update.txt"
+          cat "$RUNNER_TEMP/update.txt"
+
+      - name: Open or refresh the update pull request
+        if: steps.check.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          short=${LATEST:0:7}
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          # -f: the copy is committed whole, even where .gitignore would skip a file
+          git add -A -f .claude
+          git commit -q -m "chore(pstack): update pstack-claude to $short"
+
+          # Leave the branch alone when it already holds this exact copy, so
+          # an open pull request keeps its commit and its CI run even after
+          # main moves on. GitHub flags a conflict if it needs a rebuild.
+          if git fetch -q origin "$BRANCH" 2>/dev/null &&
+            [ "$(git rev-parse FETCH_HEAD:.claude)" = "$(git rev-parse HEAD:.claude)" ]; then
+            echo "$BRANCH already holds pstack-claude $short"
+            run_ci=false
+          else
+            # The branch belongs to this workflow and is rebuilt from main
+            # each time, so one pull request carries the latest copy.
+            git push -q --force origin "HEAD:refs/heads/$BRANCH"
+            run_ci=true
+          fi
+
+          {
+            echo "Updates the vendored pstack-claude copy in \`.claude/\` to [\`$short\`](https://github.com/michael-denyer/pstack-claude/commit/$LATEST), made by \`sh .claude/update-pstack.sh $LATEST\`."
+            echo
+            echo "Review the diff before merging: threads use this copy as written. Keep any rule that conflicts with \`CLAUDE.md\` or \`.claude/thread-start.md\` out, and check the licenses in \`.claude/skills/poteto-mode/references/licenses/\` still cover the copy."
+            echo
+            echo "This branch is rebuilt from main on each run that finds a new upstream commit, so a commit pushed to it is lost. Ask for a fix on main instead."
+            echo
+            echo "### Upstream commits that touch the copy"
+            echo
+            # Upstream subjects are third-party text: no backticks, so they
+            # can't close the fence.
+            echo '~~~'
+            tr -d '`~' < "$RUNNER_TEMP/check.txt"
+            echo '~~~'
+            if grep -q '^check for a Fable default' "$RUNNER_TEMP/update.txt"; then
+              echo
+              echo "### Fable mentions left after the rewrite"
+              echo
+              echo "Fable never runs in this repository. Check each line below is not a model default."
+              echo
+              echo '~~~'
+              grep '^check for a Fable default' "$RUNNER_TEMP/update.txt" | tr -d '~'
+              echo '~~~'
+            fi
+            echo
+            echo "Opened by the weekly \`pstack update\` workflow."
+          } > "$RUNNER_TEMP/body.md"
+
+          title="chore(pstack): update pstack-claude to $short"
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md" || {
+              echo "::error::Could not open the pull request. Check that Settings > Actions > General > Workflow permissions allows GitHub Actions to create pull requests."
+              exit 1
+            }
+            run_ci=true
+          fi
+
+          # A pull request opened with the workflow token starts no CI, so
+          # start it on the branch whenever the branch or the PR is new.
+          if [ "$run_ci" = true ]; then
+            gh workflow run ci.yml --ref "$BRANCH"
+          fi

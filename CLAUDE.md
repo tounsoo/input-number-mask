@@ -4,9 +4,14 @@
 
 ## pstack
 
-Work here uses [pstack-claude](https://github.com/michael-denyer/pstack-claude). A local Claude Code session gets the `pstack` plugin from `.claude/settings.json` once the folder is trusted. Duet threads: read [`.claude/thread-start.md`](.claude/thread-start.md) next. A thread attaches the repository after it starts, so nothing in `.claude/` loads by itself there, and that page installs pstack by hand.
+Work here uses [pstack-claude](https://github.com/michael-denyer/pstack-claude), checked in at one pinned commit so no session downloads it. Its skills are in `.claude/skills/`, its agents in `.claude/agents/`, and its licenses in `.claude/skills/poteto-mode/references/licenses/`. The `pin=` line in `.claude/update-pstack.sh` records the commit, and `.claude/pstack-files.txt` lists the skills and agents the copy holds. The repository's own `verify` skill sits beside them.
 
-`.claude/models.md` is the pstack model sheet. Where pstack names the `pstack-models.md` sheet, read that file. A change to a role's model or effort goes there, with Ben's yes.
+- A local Claude Code session loads the skills and agents from `.claude/`, and `.claude/settings.json` prints `.claude/pstack-session-start.md` at session start, so tasks route to `poteto-mode`. Skills and agents are project files, so they have no plugin prefix: where pstack names `pstack:<name>`, use `<name>`. A `<plugin>` path in a skill means `.claude`.
+- Duet threads: read [`.claude/thread-start.md`](.claude/thread-start.md) next. A thread attaches the repository after it starts, so nothing in `.claude/` loads by itself there, and that page says how to use the copy by hand.
+- The weekly `pstack update` workflow (`.github/workflows/pstack-update.yml`) runs `sh .claude/update-pstack.sh --check`. When upstream has changed the copied files, it copies the new commit in and opens one pull request from the `pstack/update` branch, or refreshes the one already open. It closes that pull request when main already matches upstream. Review that diff like any other change before it merges.
+- To move the pin by hand, run `sh .claude/update-pstack.sh <commit>` locally and review the diff. Threads don't run it. The script leaves out `babysit`, `fix-ci`, `fix-merge-conflicts`, `get-pr-comments` and `setup-pstack`, rewrites any skill or agent default that names `fable` to `opus`, drops the `pstack:` prefix from the routing text, and lists the Fable mentions left for a reviewer to check.
+
+`.claude/models.md` is the pstack model sheet. Where pstack names the `pstack-models.md` sheet, read that file. A change to a role's model or effort goes there, with Ben's yes. Fable never runs here.
 
 ## Set up
 
@@ -18,7 +23,7 @@ These are the `package.json` scripts CI relies on, in the order the CI `Test` jo
 
 | Command | What it does |
 | --- | --- |
-| `pnpm lint` | ESLint on `**/*.{ts,tsx}`. Ignores `dist`, `coverage` and `storybook-static`. |
+| `pnpm lint` | ESLint on `**/*.{ts,tsx}`. Ignores `dist`, `coverage`, `storybook-static` and `.claude`, which holds the vendored pstack scripts. |
 | `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}`). |
 | `pnpm build:lib` | Type-checks the library (`tsconfig.lib.json`), builds `dist/index.mjs` and `dist/index.cjs` with Vite, then bundles the types into `dist/index.d.ts` and `dist/index.d.cts` with rollup-plugin-dts. |
 | `pnpm check:package` | `publint --strict`, `attw --pack .` and `scripts/check-exports.mjs`, which checks that the ESM, CJS and type entries export exactly the public names. Needs `build:lib` first. |
