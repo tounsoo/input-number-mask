@@ -28,9 +28,17 @@ jobs:
     env:
       BRANCH: pstack/update
       GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        # bash with -eo pipefail, so a failing command in a pipe fails the step
+        shell: bash
     steps:
+      # main even for a manual run started from another branch, so the update
+      # pull request carries only the update
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
 
       - name: Compare the pin with upstream
         id: check
@@ -46,7 +54,7 @@ jobs:
               echo "changed=true" >> "$GITHUB_OUTPUT"
               echo "latest=$latest" >> "$GITHUB_OUTPUT" ;;
             11)
-              echo "::error::The pstack pin is ahead of upstream, off its default branch, or gone. Pick a new pin by hand."
+              echo "::error::The pstack pin is ahead of upstream, off its default branch, or gone. Pick an upstream commit and run sh .claude/update-pstack.sh <commit> locally."
               exit 1 ;;
             *) exit "$status" ;;
           esac
@@ -56,7 +64,8 @@ jobs:
         env:
           LATEST: ${{ steps.check.outputs.latest }}
         run: |
-          sh .claude/update-pstack.sh "$LATEST" | tee "$RUNNER_TEMP/update.txt"
+          sh .claude/update-pstack.sh "$LATEST" > "$RUNNER_TEMP/update.txt"
+          cat "$RUNNER_TEMP/update.txt"
 
       - name: Open or refresh the update pull request
         if: steps.check.outputs.changed == 'true'
@@ -71,16 +80,17 @@ jobs:
           git commit -q -m "chore(pstack): update pstack-claude to $short"
 
           # Leave the branch alone when it already holds this exact copy, so
-          # an open pull request keeps its commit and its CI run.
+          # an open pull request keeps its commit and its CI run even after
+          # main moves on. GitHub flags a conflict if it needs a rebuild.
           if git fetch -q origin "$BRANCH" 2>/dev/null &&
-            [ "$(git rev-parse FETCH_HEAD^{tree})" = "$(git rev-parse HEAD^{tree})" ]; then
+            [ "$(git rev-parse FETCH_HEAD:.claude)" = "$(git rev-parse HEAD:.claude)" ]; then
             echo "$BRANCH already holds pstack-claude $short"
-            pushed=false
+            run_ci=false
           else
             # The branch belongs to this workflow and is rebuilt from main
             # each time, so one pull request carries the latest copy.
             git push -q --force origin "HEAD:refs/heads/$BRANCH"
-            pushed=true
+            run_ci=true
           fi
 
           {
@@ -88,20 +98,24 @@ jobs:
             echo
             echo "Review the diff before merging: threads use this copy as written. Keep any rule that conflicts with \`CLAUDE.md\` or \`.claude/thread-start.md\` out, and check the licenses in \`.claude/skills/poteto-mode/references/licenses/\` still cover the copy."
             echo
+            echo "This branch is rebuilt from main on each run that finds a new upstream commit, so a commit pushed to it is lost. Ask for a fix on main instead."
+            echo
             echo "### Upstream commits that touch the copy"
             echo
-            echo '```'
-            cat "$RUNNER_TEMP/check.txt"
-            echo '```'
+            # Upstream subjects are third-party text: no backticks, so they
+            # can't close the fence.
+            echo '~~~'
+            tr -d '`~' < "$RUNNER_TEMP/check.txt"
+            echo '~~~'
             if grep -q '^check for a Fable default' "$RUNNER_TEMP/update.txt"; then
               echo
               echo "### Fable mentions left after the rewrite"
               echo
               echo "Fable never runs in this repository. Check each line below is not a model default."
               echo
-              echo '```'
-              grep '^check for a Fable default' "$RUNNER_TEMP/update.txt"
-              echo '```'
+              echo '~~~'
+              grep '^check for a Fable default' "$RUNNER_TEMP/update.txt" | tr -d '~'
+              echo '~~~'
             fi
             echo
             echo "Opened by the weekly \`pstack update\` workflow."
@@ -116,8 +130,11 @@ jobs:
               echo "::error::Could not open the pull request. Check that Settings > Actions > General > Workflow permissions allows GitHub Actions to create pull requests."
               exit 1
             }
+            run_ci=true
           fi
 
-          if [ "$pushed" = true ]; then
+          # A pull request opened with the workflow token starts no CI, so
+          # start it on the branch whenever the branch or the PR is new.
+          if [ "$run_ci" = true ]; then
             gh workflow run ci.yml --ref "$BRANCH"
           fi

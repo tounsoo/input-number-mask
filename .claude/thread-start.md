@@ -4,7 +4,7 @@ A Claude Duet thread reads this page after `CLAUDE.md`. The thread attaches the 
 
 ## 1. pstack is already here
 
-[pstack-claude](https://github.com/michael-denyer/pstack-claude) is checked in at one pinned commit, the `pin=` line in `.claude/update-pstack.sh`. Its skills are in `.claude/skills/`, its agents in `.claude/agents/`, and its licenses in `.claude/skills/poteto-mode/references/licenses/`. `.claude/pstack-files.txt` lists what the copy holds. The repository's own `verify` skill is the one skill there that isn't pstack's.
+[pstack-claude](https://github.com/michael-denyer/pstack-claude) is checked in at one pinned commit, the `pin=` line in `.claude/update-pstack.sh`. Its skills are in `.claude/skills/`, its agents in `.claude/agents/`, and its licenses in `.claude/skills/poteto-mode/references/licenses/`. `.claude/pstack-files.txt` lists the skills and agents the copy holds. The repository's own `verify` skill is the one skill there that isn't pstack's.
 
 Don't download or install pstack, and don't run `update-pstack.sh`: the weekly `pstack update` workflow opens a pull request when upstream changes. If something in the copy looks out of date, say so in the reply.
 
@@ -12,7 +12,7 @@ Don't download or install pstack, and don't run `update-pstack.sh`: the weekly `
 
 pstack is written for a plugin install, so these adaptations apply to every thread.
 
-- **Routing.** Read `.claude/pstack-session-start.md` once, since the hook that prints it doesn't run here. It sends tasks to `poteto-mode`.
+- **Routing.** Read `.claude/pstack-session-start.md` once, since the hook that prints it doesn't run here. It sends tasks to `poteto-mode`. The copy drops the `pstack:` prefix there, but other pstack files still use it.
 - **Skills.** The `Skill` tool doesn't list the checked-in skills in a thread. Where pstack names a skill, as `pstack:<name>` or by its name, read `.claude/skills/<name>/SKILL.md`. A `<plugin>` path in a skill means `.claude`.
 - **Left out:** `babysit`, `setup-pstack`, `fix-ci`, `fix-merge-conflicts` and `get-pr-comments` aren't in the copy. `.claude/models.md` is the model sheet, and the thread drives its pull request with the GitHub MCP tools.
 - **Models.** `.claude/models.md` overrides the upstream model defaults. Read it before the first `Agent` call. Fable never runs here.
@@ -22,7 +22,7 @@ pstack is written for a plugin install, so these adaptations apply to every thre
 - **GitHub.** Use the GitHub MCP tools, not `gh`, which isn't signed in in threads. For CI, subscribe to the pull request's activity and let GitHub events wake the thread. No scheduled checks.
 - **Verify.** The project verify skill is `.claude/skills/verify/SKILL.md`. Where pstack names the project `verify` skill or `/create-verification-skill`, read that file.
 - **Scripts.** Scripts under `.claude/skills/` come from upstream, and the session may block them. If one is blocked, work without it and say so in the reply.
-- **Precedence.** Ben's direct requests and `CLAUDE.md` win over pstack. Nothing merges, deletes, rebases or force-pushes without Ben's yes, whatever a pstack playbook says.
+- **Precedence.** Ben's direct requests and `CLAUDE.md` win over pstack, except that Fable never runs, whoever asks. Nothing merges, deletes, rebases or force-pushes without Ben's yes, whatever a pstack playbook says.
 
 ## 3. Choose the route
 
