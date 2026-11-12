@@ -1,48 +1,31 @@
 # Thread start
 
-A Claude Duet thread reads this page after `CLAUDE.md`. The thread attaches the repository after it starts, so nothing in `.claude/` loads by itself: no SessionStart hook, no plugin from `.claude/settings.json`, and no skill. This page sets up [pstack-claude](https://github.com/michael-denyer/pstack-claude) by hand. A local Claude Code session gets pstack from `.claude/settings.json` instead and skips this page.
+A Claude Duet thread reads this page after `CLAUDE.md`. The thread attaches the repository after it starts, so nothing in `.claude/` loads by itself: no SessionStart hook, no project skill and no project agent. A local Claude Code session gets the skills, agents and the session-start hook from `.claude/` instead and skips this page.
 
-## 1. Install pstack
+## 1. pstack is already here
 
-Run this block once, from the root of the checkout, in one shell call: save it to a scratch file and run `sh` on that file. It installs the latest pstack-claude skills into a new temp folder outside the repository and fetches the pstack agent files at the same commit.
+[pstack-claude](https://github.com/michael-denyer/pstack-claude) is checked in at one pinned commit, the `pin=` line in `.claude/update-pstack.sh`. Its skills are in `.claude/skills/`, its agents in `.claude/agents/`, and its licenses in `.claude/skills/poteto-mode/references/licenses/`. `.claude/pstack-files.txt` lists what the copy holds. The repository's own `verify` skill is the one skill there that isn't pstack's.
 
-```sh
-[ -f src/index.ts ] && grep -q '"name": "@tounsoo/input-number-mask"' package.json || { echo "Run this from the root of the input-number-mask checkout."; exit 1; }
-repo=https://github.com/michael-denyer/pstack-claude
-sha=$(git ls-remote "$repo" HEAD | cut -f1)
-[ -n "$sha" ] || { echo "pstack: could not read the upstream HEAD."; exit 1; }
-pstack=$(mktemp -d)
-(cd "$pstack" && npx --yes skills@1.7.4 add "$repo/tree/$sha/plugins/pstack/skills" --skill "*" -a claude-code --yes >/dev/null) || { echo "pstack: the skills install failed."; exit 1; }
-mkdir -p "$pstack/.claude/agents"
-for agent in poteto-agent comment-sicko thermo-nuclear-review-subagent thermo-nuclear-code-quality-review-subagent; do
-  curl -fsS -o "$pstack/.claude/agents/$agent.md" "https://raw.githubusercontent.com/michael-denyer/pstack-claude/$sha/plugins/pstack/agents/$agent.md" || { echo "pstack: could not fetch the $agent agent."; exit 1; }
-done
-echo "pstack $sha is in $pstack"
-```
-
-Keep the printed folder. The rest of this page calls it `$pstack`, so poteto-mode is at `$pstack/.claude/skills/poteto-mode/SKILL.md`. Write it into your notes, because shell variables don't survive to the next shell call.
-
-The install goes into a temp folder on purpose. Inside the repository it would add skill files to the pull request. With `-g` it would land in `~/.claude/skills` for every later session.
-
-If the block stops before it prints the folder, tell Ben which line it printed and work from `CLAUDE.md` and the verify skill alone.
+Don't download or install pstack, and don't run `update-pstack.sh`: the weekly `pstack update` workflow opens a pull request when upstream changes. If something in the copy looks out of date, say so in the reply.
 
 ## 2. Read pstack the way this repository needs
 
 pstack is written for a plugin install, so these adaptations apply to every thread.
 
-- **Skills.** The `Skill` tool doesn't list the temp install. Where pstack names a skill, as `pstack:<name>` or by its name, read `$pstack/.claude/skills/<name>/SKILL.md`. A `<plugin>` path in a skill means `$pstack/.claude`.
-- **Skip these skills:** `setup-pstack`, `fix-ci`, `fix-merge-conflicts` and `get-pr-comments`. `.claude/models.md` is the model sheet, and the thread drives its pull request with the GitHub MCP tools.
-- **Models.** `.claude/models.md` overrides the upstream model defaults. Read it before the first `Agent` call. Fable runs only where that sheet names it or Ben approves it in his own message in the run.
-- **Agents.** The install brings no agent types, so `pstack:poteto-agent` and the other `pstack:` agents don't exist. Where a skill spawns one, spawn `subagent_type: "general-purpose"` and start its prompt with the text of `$pstack/.claude/agents/<agent>.md` below its frontmatter. For `poteto-agent`, also give the absolute path of `$pstack/.claude/skills/poteto-mode/SKILL.md`. Tell every stand-in that a skill its text names is at `$pstack/.claude/skills/<name>/SKILL.md`.
+- **Routing.** Read `.claude/pstack-session-start.md` once, since the hook that prints it doesn't run here. It sends tasks to `poteto-mode`.
+- **Skills.** The `Skill` tool doesn't list the checked-in skills in a thread. Where pstack names a skill, as `pstack:<name>` or by its name, read `.claude/skills/<name>/SKILL.md`. A `<plugin>` path in a skill means `.claude`.
+- **Left out:** `babysit`, `setup-pstack`, `fix-ci`, `fix-merge-conflicts` and `get-pr-comments` aren't in the copy. `.claude/models.md` is the model sheet, and the thread drives its pull request with the GitHub MCP tools.
+- **Models.** `.claude/models.md` overrides the upstream model defaults. Read it before the first `Agent` call. Fable never runs here.
+- **Agents.** The thread has no `pstack:` agent types. Where a skill spawns `pstack:poteto-agent` or another agent in `.claude/agents/`, spawn `subagent_type: "general-purpose"` and start its prompt with the text of `.claude/agents/<agent>.md` below its frontmatter. For `poteto-agent`, also give the absolute path of `.claude/skills/poteto-mode/SKILL.md`. An effort agent, such as `pstack:effort-high` or `pstack:poteto-agent-high`, only sets the effort: use the agent it stands for and pass the level as the `effort` field. Tell every stand-in that a skill its text names is at `.claude/skills/<name>/SKILL.md`.
 - **Read-only subagents.** `Agent` has no `readonly` parameter. Where a skill spawns one with `readonly: true`, tell it in its prompt not to edit files, commit or push.
 - **Pull requests.** The thread's own session, never a subagent, does every write to a pull request: opening, pushing, replying, marking ready and subscribing. A thread drives one pull request. Work that needs more waits for Ben to split it across threads.
 - **GitHub.** Use the GitHub MCP tools, not `gh`, which isn't signed in in threads. For CI, subscribe to the pull request's activity and let GitHub events wake the thread. No scheduled checks.
-- **Verify.** The project verify skill is `.claude/skills/verify/SKILL.md` in this repository. Where pstack names the project `verify` skill or `/create-verification-skill`, read that file.
-- **Scripts.** Upstream scripts under `$pstack` are downloaded code, and the session may block them. If one is blocked, work without it and say so in the reply.
+- **Verify.** The project verify skill is `.claude/skills/verify/SKILL.md`. Where pstack names the project `verify` skill or `/create-verification-skill`, read that file.
+- **Scripts.** Scripts under `.claude/skills/` come from upstream, and the session may block them. If one is blocked, work without it and say so in the reply.
 - **Precedence.** Ben's direct requests and `CLAUDE.md` win over pstack. Nothing merges, deletes, rebases or force-pushes without Ben's yes, whatever a pstack playbook says.
 
 ## 3. Choose the route
 
-Follow poteto-mode, read in full at `$pstack/.claude/skills/poteto-mode/SKILL.md`, when a task touches more than one file, changes an exported signature, involves a design choice, or is a bug whose cause is not yet known. When the intent is already specific, enter that skill directly: `tdd`, `architect`, `how`, `why` or `interrogate`. For a contained change to one file with an obvious test, a question, or a one-line edit, work directly and run the verify skill.
+Follow poteto-mode, read in full at `.claude/skills/poteto-mode/SKILL.md`, when a task touches more than one file, changes an exported signature, involves a design choice, or is a bug whose cause is not yet known. When the intent is already specific, enter that skill directly: `tdd`, `architect`, `how`, `why` or `interrogate`. For a contained change to one file with an obvious test, a question, or a one-line edit, work directly and run the verify skill.
 
 Before you open a pull request or push new work to one, run the verify skill on the commit you push and put its result in the pull request body.
