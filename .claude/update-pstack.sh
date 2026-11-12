@@ -67,7 +67,12 @@ check() {
   touched=$(git -C "$tmp" rev-list --count "$pin..$latest" -- "$@")
   echo "behind by $behind commits, $touched in the copied files"
   echo "latest: $latest"
-  [ "$touched" -gt 0 ] || exit 0
+  # Commits that cancel each other out leave nothing to update. Trees are
+  # enough for this, so the blob-less fetch above serves it.
+  if GIT_NO_LAZY_FETCH=1 git -C "$tmp" diff --quiet "$pin" "$latest" -- "$@"; then
+    echo "no net change in the copied files"
+    exit 0
+  fi
   git -C "$tmp" log --format='  %H %cs %s' "$pin..$latest" -- "$@"
   exit 10
 }
@@ -83,6 +88,10 @@ git -C "$tmp" fetch -q --depth 1 "$repo" "${1:-$pin}"
 git -C "$tmp" checkout -q FETCH_HEAD
 src="$tmp/plugins/pstack"
 
+[ -f "$src/$hook" ] || { echo "upstream has no plugins/pstack/$hook" >&2; exit 1; }
+licenses=skills/poteto-mode/references/licenses
+[ -f "$src/$licenses/LICENSE" ] || { echo "upstream has no plugins/pstack/$licenses/LICENSE" >&2; exit 1; }
+
 # The manifest lists what the last run copied, so a skill or agent that
 # upstream drops is removed too.
 manifest="$root/.claude/pstack-files.txt"
@@ -92,17 +101,50 @@ touch "$manifest"
 for dir in "$src"/skills/*/; do
   name=$(basename "$dir")
   case " $skip " in *" $name "*) continue ;; esac
-  [ ! -e "$root/.claude/skills/$name" ] || grep -qx ".claude/skills/$name" "$manifest" ||
+  [ ! -e "$root/.claude/skills/$name" ] || grep -qxF ".claude/skills/$name" "$manifest" ||
     { echo "upstream skill $name would replace the repository's own .claude/skills/$name" >&2; exit 1; }
 done
 for dir in $agent_dirs; do
   for file in "$src/$dir"/*.md; do
     [ -e "$file" ] || continue
     name=$(basename "$file")
-    [ ! -e "$root/.claude/agents/$name" ] || grep -qx ".claude/agents/$name" "$manifest" ||
+    [ ! -e "$root/.claude/agents/$name" ] || grep -qxF ".claude/agents/$name" "$manifest" ||
       { echo "upstream agent $name would replace the repository's own .claude/agents/$name" >&2; exit 1; }
   done
 done
+
+# Build the new copy in $out first, so a failure leaves the checked-in copy
+# as it was.
+out="$tmp/out"
+mkdir -p "$out/skills" "$out/agents"
+: > "$out/manifest"
+for dir in "$src"/skills/*/; do
+  name=$(basename "$dir")
+  case " $skip " in *" $name "*) continue ;; esac
+  cp -R "$dir" "$out/skills/$name"
+  echo ".claude/skills/$name" >> "$out/manifest"
+done
+for dir in $agent_dirs; do
+  # Upstream may drop an agent directory, as it did effort-agents.
+  for file in "$src/$dir"/*.md; do
+    [ -e "$file" ] || continue
+    cp "$file" "$out/agents/"
+    echo ".claude/agents/$(basename "$file")" >> "$out/manifest"
+  done
+done
+# Fable never runs here, so no skill or agent default may name it, even when
+# a line in .claude/models.md is missing: a `fable` or `fable @level` value,
+# or a model: fable line in an agent's frontmatter, becomes opus.
+for file in "$out"/skills/*/SKILL.md "$out"/agents/*.md; do
+  [ -e "$file" ] || continue
+  sed -i.bak -e 's/`fable\( @[a-z]*\)\{0,1\}`/`opus\1`/g' -e 's/^model: *fable.*$/model: opus/' "$file"
+  rm "$file.bak"
+done
+# Skills and agents are project files here, so the routing text drops the
+# plugin prefix: `pstack:poteto-mode` becomes `poteto-mode`.
+sed 's/`pstack:\([a-z-]*\)`/`\1`/g' "$src/$hook" > "$out/session-start.md"
+
+# Swap the new copy in.
 while IFS= read -r path; do
   # Only remove entries this script writes, so a hand-edited line can't
   # reach outside .claude.
@@ -112,33 +154,20 @@ while IFS= read -r path; do
     .claude/skills/* | .claude/agents/*.md) rm -rf "${root:?}/$path" ;;
   esac
 done < "$manifest"
-: > "$manifest"
-
 mkdir -p "$root/.claude/skills" "$root/.claude/agents"
-for dir in "$src"/skills/*/; do
-  name=$(basename "$dir")
-  case " $skip " in *" $name "*) continue ;; esac
-  cp -R "$dir" "$root/.claude/skills/$name"
-  echo ".claude/skills/$name" >> "$manifest"
+for dir in "$out"/skills/*/; do
+  mv "$dir" "$root/.claude/skills/"
 done
-for dir in $agent_dirs; do
-  # Upstream may drop an agent directory, as it did effort-agents.
-  for file in "$src/$dir"/*.md; do
-    [ -e "$file" ] || continue
-    cp "$file" "$root/.claude/agents/"
-    echo ".claude/agents/$(basename "$file")" >> "$manifest"
-  done
+for file in "$out"/agents/*.md; do
+  [ -e "$file" ] || continue
+  mv "$file" "$root/.claude/agents/"
 done
-# Fable never runs here, so no skill or agent default may name it, even when
-# a line in .claude/models.md is missing.
-for file in "$root"/.claude/skills/*/SKILL.md "$root"/.claude/agents/*.md; do
-  sed -i.bak 's/`fable\([^`]*\)`/`opus\1`/g' "$file" && rm "$file.bak"
-done
+mv "$out/session-start.md" "$root/.claude/pstack-session-start.md"
+mv "$out/manifest" "$manifest"
 # Any other mention could be a default the rewrite missed, so list it to check.
-grep -rnio '.\{0,30\}fable.\{0,30\}' "$root/.claude/skills" "$root/.claude/agents" |
-  sed "s|^$root/|check for a Fable default: |" || true
-# A local session's SessionStart hook in .claude/settings.json prints this.
-cp "$src/$hook" "$root/.claude/pstack-session-start.md"
+while IFS= read -r path; do
+  grep -rnio '.\{0,30\}fable.\{0,30\}' "$root/$path" | sed "s|^$root/|check for a Fable default: |" || true
+done < "$manifest"
 commit=$(git -C "$tmp" rev-parse HEAD)
 self="$root/.claude/update-pstack.sh"
 sed -i.bak "s/^pin=.*/pin=$commit/" "$self"
