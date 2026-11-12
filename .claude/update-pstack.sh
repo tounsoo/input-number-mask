@@ -97,6 +97,7 @@ for dir in "$src"/skills/*/; do
 done
 for dir in $agent_dirs; do
   for file in "$src/$dir"/*.md; do
+    [ -e "$file" ] || continue
     name=$(basename "$file")
     [ ! -e "$root/.claude/agents/$name" ] || grep -qx ".claude/agents/$name" "$manifest" ||
       { echo "upstream agent $name would replace the repository's own .claude/agents/$name" >&2; exit 1; }
@@ -121,7 +122,9 @@ for dir in "$src"/skills/*/; do
   echo ".claude/skills/$name" >> "$manifest"
 done
 for dir in $agent_dirs; do
+  # Upstream may drop an agent directory, as it did effort-agents.
   for file in "$src/$dir"/*.md; do
+    [ -e "$file" ] || continue
     cp "$file" "$root/.claude/agents/"
     echo ".claude/agents/$(basename "$file")" >> "$manifest"
   done
