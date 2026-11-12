@@ -59,6 +59,15 @@ jobs:
             *) exit "$status" ;;
           esac
 
+      # Upstream reverted what the open pull request brings in, or the pin
+      # moved by hand, so that pull request no longer matches upstream.
+      - name: Close a stale update pull request
+        if: steps.check.outputs.changed == 'false'
+        run: |
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')
+          [ -z "$pr" ] || gh pr close "$pr" --comment "The copied files on main already match upstream, so this update is no longer needed."
+
       - name: Copy the new commit in
         if: steps.check.outputs.changed == 'true'
         env:
@@ -76,7 +85,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$BRANCH"
-          git add -A .claude
+          # -f: the copy is committed whole, even where .gitignore would skip a file
+          git add -A -f .claude
           git commit -q -m "chore(pstack): update pstack-claude to $short"
 
           # Leave the branch alone when it already holds this exact copy, so
@@ -122,7 +132,8 @@ jobs:
           } > "$RUNNER_TEMP/body.md"
 
           title="chore(pstack): update pstack-claude to $short"
-          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')
           if [ -n "$pr" ]; then
             gh pr edit "$pr" --title "$title" --body-file "$RUNNER_TEMP/body.md"
           else

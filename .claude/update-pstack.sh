@@ -5,8 +5,8 @@
 # script and the weekly pstack-update workflow reach upstream.
 # Usage: sh .claude/update-pstack.sh [commit]   copy pstack at a full SHA, the pin by default
 #        sh .claude/update-pstack.sh --check    compare the pin with upstream and write nothing
-# --check exits 0 when no upstream commit since the pin touches the copied
-# files, 10 when one does, and 11 when the pin is ahead of upstream's default
+# --check exits 0 when the copied files are the same upstream as at the pin,
+# 10 when they differ, and 11 when the pin is ahead of upstream's default
 # branch, off it, or gone. 2 is a usage error; any other status is an error.
 set -eu
 
@@ -113,8 +113,8 @@ for dir in $agent_dirs; do
   done
 done
 
-# Build the new copy in $out first, so a failure leaves the checked-in copy
-# as it was.
+# Build the new copy in $out first, so a failure while building leaves the
+# checked-in copy as it was. Only the swap below touches .claude.
 out="$tmp/out"
 mkdir -p "$out/skills" "$out/agents"
 : > "$out/manifest"
