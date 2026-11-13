@@ -1,7 +1,18 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { describe, it, expect } from 'vitest';
-import { PAGE_PATH, detectChecks, detectPages, detectSections, headingsOf, runsOnPullRequest } from './check-claude-docs.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { afterAll, describe, it, expect } from 'vitest';
+import {
+    CheckError,
+    PAGE_PATH,
+    detectChecks,
+    detectPages,
+    detectSections,
+    headingsOf,
+    main,
+    runsOnPullRequest,
+} from './check-claude-docs.mjs';
 
 const snap = (files) => ({
     files: new Set(Object.keys(files)),
@@ -30,6 +41,14 @@ describe('headingsOf', () => {
         ['single-line MDX comment', '{/* # no */}\n# Real', ['Real']],
         ['multi-line MDX comment', '{/*\n# no\n*/}\n# Real', ['Real']],
         ['fence inside a comment is ignored', '<!--\n```\n-->\n# Real', ['Real']],
+        ['inline triple backticks are not a fence', '```js``` text\n# Real', ['Real']],
+        ['backtick opener with a backtick in its info string', '```a`b\n# Real', ['Real']],
+        ['tilde opener may contain backticks', '~~~ a`b\n# no\n~~~\n# Real', ['Real']],
+        ['comment reopened on the same line', '<!-- a --><!--\n# no\n-->\n# Real', ['Real']],
+        ['comment opened mid-line', 'text <!--\n# no\n-->\n# Real', ['Real']],
+        ['comment closed then reopened mid-line', '<!--\n--> x <!--\n# no\n-->\n# Real', ['Real']],
+        ['heading before a trailing opener counts', '# Real <!--\n# no\n-->', ['Real <!--']],
+        ['comment spans a fence line', '<!--\n```\n# no\n-->\n# Real', ['Real']],
     ])('%s', (_name, markdown, expected) => {
         expect(headingsOf(markdown)).toEqual(expected);
     });
@@ -60,6 +79,16 @@ describe('detectSections', () => {
         expect(run(detectSections, base, head)).toHaveLength(count);
     });
 
+    it('a heading moved between files names nothing new but a duplicate does', () => {
+        const [finding] = run(
+            detectSections,
+            { 'README.md': '# A\n## Setup\n' },
+            { 'README.md': '# A\n## Setup\n', 'src/G.mdx': '## Setup\n' },
+        );
+        expect(finding.file).toBe('src/G.mdx');
+        expect(finding.detail).toBe('Docs have 3 headings, up from 2 (new: "Setup" in src/G.mdx)');
+    });
+
     it('names the new heading and its file', () => {
         const [finding] = run(detectSections, { 'README.md': readme }, { 'README.md': `${readme}## New\n` });
         expect(finding.file).toBe('README.md');
@@ -86,6 +115,11 @@ describe('detectPages', () => {
         const [finding] = run(detectPages, { 'src/A.mdx': '' }, { 'src/A.mdx': '', [story]: '' });
         expect(finding.file).toBe(story);
         expect(finding.detail).toBe(`Storybook has 2 pages, up from 1 (new: ${story})`);
+    });
+
+    it('pluralises a single page', () => {
+        const [finding] = run(detectPages, {}, { [story]: '' });
+        expect(finding.detail).toBe(`Storybook has 1 page, up from 0 (new: ${story})`);
     });
 });
 
@@ -162,10 +196,136 @@ describe('detectChecks', () => {
         expect(warnings).toEqual([`::warning file=${bad}::${bad} is not valid YAML, so the Claude docs check skips it`]);
     });
 
+    it('a job named like an existing job in another file is still named', () => {
+        const other = '.github/workflows/other.yml';
+        const { findings } = check({ [ci]: base[ci], [other]: workflow('pull_request', { test: 1 }) });
+        expect(findings.map((f) => f.detail)).toEqual([
+            `PR workflows have 3 jobs, up from 2 (new: test in ${other})`,
+            `PR workflows have 4 steps, up from 3 (more in: ${other})`,
+        ]);
+        expect(findings[0].file).toBe(other);
+    });
+
+    it('pluralises one job and one step', () => {
+        const { findings } = check({ [ci]: workflow('pull_request', { a: 1 }) }, {});
+        expect(findings.map((f) => f.detail)).toEqual([
+            `PR workflows have 1 job, up from 0 (new: a in ${ci})`,
+            `PR workflows have 1 step, up from 0 (more in: ${ci})`,
+        ]);
+    });
+
+    it('repairing a workflow that was invalid at base fires', () => {
+        const wf = '.github/workflows/pr.yml';
+        const { findings, warnings } = check({ [wf]: workflow('pull_request', { a: 1 }) }, { [wf]: 'on: [pull_request\n' });
+        expect(findings).toHaveLength(2);
+        expect(warnings).toEqual([]);
+    });
+
+    it('a workflow invalid at head is dropped from base too', () => {
+        const { findings } = check({ [ci]: 'on: [pull_request\n' });
+        expect(findings).toEqual([]);
+    });
+
     it('is silent about invalid YAML at base', () => {
         const bad = '.github/workflows/old.yml';
         const { warnings } = check(base, { ...base, [bad]: 'on: [pull_request\n' });
         expect(warnings).toEqual([]);
+    });
+});
+
+describe('main', () => {
+    const dirs = [];
+    afterAll(() => dirs.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
+
+    const gitIn = (cwd, ...args) =>
+        execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], { cwd, stdio: 'pipe' });
+    const write = (cwd, files) => {
+        for (const [path, content] of Object.entries(files)) {
+            mkdirSync(dirname(join(cwd, path)), { recursive: true });
+            writeFileSync(join(cwd, path), content);
+        }
+    };
+    // Commits `baseFiles` on main, then `headFiles` and `removed` on a branch.
+    const repo = (baseFiles, headFiles, removed = []) => {
+        const cwd = mkdtempSync(join(tmpdir(), 'claude-docs-'));
+        dirs.push(cwd);
+        gitIn(cwd, 'init', '-q', '-b', 'main');
+        write(cwd, { 'README.md': '# T\n', ...baseFiles });
+        gitIn(cwd, 'add', '-A');
+        gitIn(cwd, 'commit', '-qm', 'base');
+        gitIn(cwd, 'checkout', '-qb', 'feat');
+        write(cwd, headFiles);
+        for (const path of removed) rmSync(join(cwd, path));
+        gitIn(cwd, 'add', '-A');
+        gitIn(cwd, 'commit', '-qm', 'head');
+        return cwd;
+    };
+    const exec = (cwd, env = {}, args = ['main', 'HEAD']) => {
+        const out = [];
+        const err = [];
+        const code = main({ args, env, cwd, log: (line) => out.push(line), error: (line) => err.push(line) });
+        return { code, out: out.join('\n'), err: err.join('\n') };
+    };
+    const story = { 'src/New.stories.tsx': '' };
+    const docs = { 'CLAUDE.md': 'x', '.claude/skills/verify/x.md': 'x' };
+
+    it('passes when nothing is added', () => {
+        const { code, out } = exec(repo({}, { 'src/util.ts': '' }));
+        expect(code).toBe(0);
+        expect(out).toContain('No new page');
+    });
+
+    it('fails and names both missing docs for a new story', () => {
+        const { code, out, err } = exec(repo({}, story));
+        expect(code).toBe(1);
+        expect(out).toContain('::error file=src/New.stories.tsx::Storybook has 1 page');
+        expect(err).toContain('Update CLAUDE.md and .claude/skills/verify/ in the same PR');
+    });
+
+    it('names only the doc that is missing', () => {
+        const { code, err } = exec(repo({}, { ...story, 'CLAUDE.md': 'x' }));
+        expect(code).toBe(1);
+        expect(err).toContain('Update .claude/skills/verify/ in the same PR');
+    });
+
+    it('passes when CLAUDE.md and the verify skill change too', () => {
+        const { code, out } = exec(repo({}, { ...story, ...docs }));
+        expect(code).toBe(0);
+        expect(out).toContain('and updates CLAUDE.md and the verify skill');
+    });
+
+    it('warns instead of failing when SKIP_CLAUDE_DOCS is true', () => {
+        const { code, out, err } = exec(repo({}, story), { SKIP_CLAUDE_DOCS: 'true' });
+        expect(code).toBe(0);
+        expect(out).toContain('::warning::');
+        expect(err).toBe('');
+    });
+
+    it('does not skip for other SKIP_CLAUDE_DOCS values', () => {
+        expect(exec(repo({}, story), { SKIP_CLAUDE_DOCS: '' }).code).toBe(1);
+    });
+
+    it('counts a file moved out of the verify skill as changing it', () => {
+        const cwd = repo({ '.claude/skills/verify/old.md': 'x' }, { ...story, 'CLAUDE.md': 'x', 'docs/old.md': 'x' }, [
+            '.claude/skills/verify/old.md',
+        ]);
+        expect(exec(cwd).code).toBe(0);
+    });
+
+    it('throws CheckError for a base ref that does not exist', () => {
+        const cwd = repo({}, story);
+        expect(() => exec(cwd, {}, ['nope', 'HEAD'])).toThrow(CheckError);
+        expect(() => exec(cwd, {}, ['nope', 'HEAD'])).toThrow(/merge-base nope HEAD failed/);
+    });
+
+    it('throws CheckError outside a repository', () => {
+        const cwd = mkdtempSync(join(tmpdir(), 'claude-docs-'));
+        dirs.push(cwd);
+        expect(() => exec(cwd, {}, ['main', 'HEAD'])).toThrow(CheckError);
+    });
+
+    it('throws CheckError for too many arguments', () => {
+        expect(() => main({ args: ['a', 'b', 'c'] })).toThrow(/usage/);
     });
 });
 

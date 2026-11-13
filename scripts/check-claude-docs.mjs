@@ -4,112 +4,136 @@
 // Every detector compares totals at the merge base and at head, so moving or renaming
 // something never fires; only a net increase does.
 import { execFileSync } from 'node:child_process';
-import { load } from 'js-yaml';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Loaded lazily so a missing install exits 2 in the CLI instead of crashing on import.
+let load;
+let loadError;
+try {
+    ({ load } = await import('js-yaml'));
+} catch (error) {
+    loadError = error;
+}
 
 const SKIP_LABEL = 'skip-claude-docs-check';
 
 // Mirrors the `stories` globs in .storybook/main.ts; the test suite guards against drift.
 export const PAGE_PATH = /^src\/.*(?:\.mdx|\.stories\.(?:js|jsx|mjs|ts|tsx))$/;
 const SECTION_PATH = /^(?:README\.md|src\/.*\.mdx)$/;
-const WORKFLOW_DIR = '.github/workflows';
 const WORKFLOW_PATH = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 const PR_TRIGGERS = ['pull_request', 'pull_request_target'];
 
 const HEADING = /^ {0,3}#{1,6}(?:[ \t]|$)/;
-const FENCE_OPEN = /^[ \t>]*(`{3,}|~{3,})/;
+// A backtick opener's info string may not contain a backtick, so an inline ```js``` is not a fence.
+const FENCE_OPEN = /^[ \t>]*(?:(`{3,})(?=[^`]*$)|(~{3,}))/;
 const FENCE_CLOSE = /^[ \t>]*(`{3,}|~{3,})[ \t]*$/;
 const COMMENTS = [
-    { open: /^\s*<!--/, close: '-->' },
-    { open: /^\s*\{\/\*/, close: '*/}' },
+    { open: '<!--', close: '-->' },
+    { open: '{/*', close: '*/}' },
 ];
 
-class CheckError extends Error {}
+export class CheckError extends Error {}
 
-const git = (...args) => {
+const git = (cwd, ...args) => {
     try {
-        return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+        return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (error) {
         throw new CheckError(`git ${args.join(' ')} failed: ${String(error.stderr || error.message).trim()}`);
     }
 };
-const gitPaths = (...args) => git(...args, '-z').split('\0').filter(Boolean);
+const gitPaths = (cwd, ...args) => git(cwd, ...args, '-z').split('\0').filter(Boolean);
 
-const snapshot = (rev) => {
-    const files = new Set(gitPaths('ls-tree', '-r', '--name-only', rev));
-    return { files, read: (path) => git('show', `${rev}:${path}`) };
-};
+const snapshot = (cwd, rev) => ({
+    files: new Set(gitPaths(cwd, 'ls-tree', '-r', '--name-only', rev)),
+    read: (path) => git(cwd, 'show', `${rev}:${path}`),
+});
 
 const list = (items, limit = 5) =>
     items.length > limit ? `${items.slice(0, limit).join(', ')} and ${items.length - limit} more` : items.join(', ');
 
-const pagesOf = (snap) => [...snap.files].filter((path) => PAGE_PATH.test(path));
+const count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 
-export const detectPages = ({ base, head }) => {
-    const before = pagesOf(base);
-    const after = pagesOf(head);
+// Every detector reports items { key, file, label } for one snapshot. A larger head total fires;
+// the items head has beyond base (matched by key, duplicates counted) are the new ones, so a
+// larger total always leaves at least one.
+const grew = ({ kind, subject, noun, word = 'new', before, after }) => {
     if (after.length <= before.length) return [];
-    const known = new Set(before);
-    const added = after.filter((path) => !known.has(path));
-    const names = added.length ? ` (new: ${list(added)})` : '';
-    return [{ kind: 'page', file: added[0] ?? after[0], detail: `Storybook has ${after.length} pages, up from ${before.length}${names}` }];
+    const unmatched = new Map();
+    for (const { key } of before) unmatched.set(key, (unmatched.get(key) ?? 0) + 1);
+    const fresh = after.filter(({ key }) => {
+        const left = unmatched.get(key) ?? 0;
+        if (left > 0) unmatched.set(key, left - 1);
+        return left <= 0;
+    });
+    const names = list([...new Set(fresh.map(({ label }) => label))]);
+    return [{ kind, file: fresh[0].file, detail: `${subject} ${count(after.length, noun)}, up from ${before.length} (${word}: ${names})` }];
+};
+
+const pagesOf = (snap) =>
+    [...snap.files].filter((path) => PAGE_PATH.test(path)).map((path) => ({ key: path, file: path, label: path }));
+
+export const detectPages = ({ base, head }) =>
+    grew({ kind: 'page', subject: 'Storybook has', noun: 'page', before: pagesOf(base), after: pagesOf(head) });
+
+// Where a comment is still open at the end of `line`, given the state at its start.
+const commentAfter = (line, open) => {
+    let at = 0;
+    for (;;) {
+        if (open) {
+            const end = line.indexOf(open.close, at);
+            if (end < 0) return open;
+            at = end + open.close.length;
+            open = null;
+        } else {
+            let next = null;
+            let nextAt = -1;
+            for (const comment of COMMENTS) {
+                const found = line.indexOf(comment.open, at);
+                if (found >= 0 && (nextAt < 0 || found < nextAt)) [next, nextAt] = [comment, found];
+            }
+            if (!next) return null;
+            open = next;
+            at = nextAt + next.open.length;
+        }
+    }
 };
 
 // Skips ATX-looking lines in code fences and comments, such as `# comment` in a bash block.
 export const headingsOf = (markdown) => {
     const found = [];
     let fence = null;
-    let commentEnd = null;
+    let comment = null;
     for (const line of markdown.split(/\r?\n/)) {
         if (fence) {
             const close = FENCE_CLOSE.exec(line);
             if (close && close[1][0] === fence.char && close[1].length >= fence.length) fence = null;
             continue;
         }
-        if (commentEnd) {
-            if (line.includes(commentEnd)) commentEnd = null;
-            continue;
+        if (!comment) {
+            const open = FENCE_OPEN.exec(line);
+            if (open) {
+                const marker = open[1] ?? open[2];
+                fence = { char: marker[0], length: marker.length };
+                continue;
+            }
+            if (HEADING.test(line)) {
+                found.push(line.replace(/^ {0,3}#{1,6}[ \t]*/, '').replace(/[ \t]+#+[ \t]*$/, '').trim());
+            }
         }
-        const comment = COMMENTS.find(({ open }) => open.test(line));
-        if (comment) {
-            const rest = line.replace(comment.open, '');
-            if (!rest.includes(comment.close)) commentEnd = comment.close;
-            continue;
-        }
-        const open = FENCE_OPEN.exec(line);
-        if (open) {
-            fence = { char: open[1][0], length: open[1].length };
-        } else if (HEADING.test(line)) {
-            found.push(line.replace(/^ {0,3}#{1,6}[ \t]*/, '').replace(/[ \t]+#+[ \t]*$/, '').trim());
-        }
+        comment = commentAfter(line, comment);
     }
     return found;
 };
 
+// Compared by text alone, so a heading moved between files names nothing new.
 const headingsIn = (snap) =>
     [...snap.files]
         .filter((path) => SECTION_PATH.test(path))
-        .flatMap((file) => headingsOf(snap.read(file)).map((text) => ({ file, text })));
+        .flatMap((file) => headingsOf(snap.read(file)).map((text) => ({ key: text, file, label: `"${text}" in ${file}` })));
 
-export const detectSections = ({ base, head }) => {
-    const before = headingsIn(base);
-    const after = headingsIn(head);
-    if (after.length <= before.length) return [];
-    const remaining = new Map();
-    for (const { text } of before) remaining.set(text, (remaining.get(text) ?? 0) + 1);
-    const added = after.filter(({ text }) => {
-        const left = remaining.get(text) ?? 0;
-        remaining.set(text, left - 1);
-        return left <= 0;
-    });
-    const names = added.length ? ` (new: ${list(added.map(({ file, text }) => `"${text}" in ${file}`))})` : '';
-    return [
-        {
-            kind: 'section',
-            file: added[0]?.file ?? 'README.md',
-            detail: `Docs have ${after.length} headings, up from ${before.length}${names}`,
-        },
-    ];
-};
+export const detectSections = ({ base, head }) =>
+    grew({ kind: 'section', subject: 'Docs have', noun: 'heading', before: headingsIn(base), after: headingsIn(head) });
 
 export const runsOnPullRequest = (on) => {
     if (typeof on === 'string') return PR_TRIGGERS.includes(on);
@@ -139,41 +163,24 @@ const prJobs = ({ workflows }, skip) =>
             Object.entries(doc.jobs ?? {}).map(([id, job]) => ({ file, id, steps: Array.isArray(job?.steps) ? job.steps.length : 0 })),
         );
 
-const sum = (jobs) => jobs.reduce((total, job) => total + job.steps, 0);
+const jobItems = (jobs) => jobs.map(({ file, id }) => ({ key: `${file}:${id}`, file, label: `${id} in ${file}` }));
+const stepItems = (jobs) => jobs.flatMap(({ file, steps }) => Array.from({ length: steps }, () => ({ key: file, file, label: file })));
 
-// GitHub reports a broken workflow itself, so a file that does not parse is left out of both sides.
+// GitHub reports a broken workflow itself. One invalid at head is left out of both sides; one
+// invalid only at base never ran, so it counts as empty there and repairing it fires.
 export const detectChecks = ({ base, head, warn = console.log }) => {
     const baseParsed = parseWorkflows(base);
     const headParsed = parseWorkflows(head);
     for (const file of headParsed.invalid) {
         warn(`::warning file=${escapeProperty(file)}::${escapeData(`${file} is not valid YAML, so the Claude docs check skips it`)}`);
     }
-    const skip = new Set([...baseParsed.invalid, ...headParsed.invalid]);
-    const before = prJobs(baseParsed, skip);
-    const after = prJobs(headParsed, skip);
-    const findings = [];
-
-    if (after.length > before.length) {
-        const known = new Set(before.map((job) => job.id));
-        const added = after.filter((job) => !known.has(job.id));
-        const names = added.length ? ` (new: ${list(added.map((job) => `${job.id} in ${job.file}`))})` : '';
-        findings.push({
-            kind: 'check',
-            file: added[0]?.file ?? WORKFLOW_DIR,
-            detail: `PR workflows have ${after.length} jobs, up from ${before.length}${names}`,
-        });
-    }
-    if (sum(after) > sum(before)) {
-        const stepsByFile = (jobs) => jobs.reduce((map, job) => map.set(job.file, (map.get(job.file) ?? 0) + job.steps), new Map());
-        const previous = stepsByFile(before);
-        const grown = [...stepsByFile(after)].filter(([file, steps]) => steps > (previous.get(file) ?? 0)).map(([file]) => file);
-        findings.push({
-            kind: 'check',
-            file: grown[0] ?? WORKFLOW_DIR,
-            detail: `PR workflows have ${sum(after)} steps, up from ${sum(before)}${grown.length ? ` (more in: ${list(grown)})` : ''}`,
-        });
-    }
-    return findings;
+    const before = prJobs(baseParsed, headParsed.invalid);
+    const after = prJobs(headParsed, headParsed.invalid);
+    const subject = 'PR workflows have';
+    return [
+        ...grew({ kind: 'check', subject, noun: 'job', before: jobItems(before), after: jobItems(after) }),
+        ...grew({ kind: 'check', subject, noun: 'step', word: 'more in', before: stepItems(before), after: stepItems(after) }),
+    ];
 };
 
 const detectors = [detectPages, detectSections, detectChecks];
@@ -181,45 +188,46 @@ const detectors = [detectPages, detectSections, detectChecks];
 const escapeData = (text) => text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 const escapeProperty = (text) => escapeData(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
 
-const main = () => {
-    const args = process.argv.slice(2);
+// Returns the exit code: 0 passes, 1 means docs are missing. Failures to run throw CheckError.
+export const main = ({ args = [], env = {}, cwd = process.cwd(), log = console.log, error = console.error } = {}) => {
     if (args.length > 2) throw new CheckError('usage: node scripts/check-claude-docs.mjs [base] [head]');
     const [baseRef = 'origin/main', headRef = 'HEAD'] = args;
 
     let mergeBase;
     try {
-        mergeBase = git('merge-base', baseRef, headRef).trim();
-    } catch (error) {
+        mergeBase = git(cwd, 'merge-base', baseRef, headRef).trim();
+    } catch (cause) {
         const hint = args.length < 1 ? ' Run `git fetch origin main` first; in a shallow clone, fetch more history (`git fetch --unshallow`).' : '';
-        throw new CheckError(`${error.message}${hint}`);
+        throw new CheckError(`${cause.message}${hint}`);
     }
-    const head = git('rev-parse', '--verify', `${headRef}^{commit}`).trim();
-    const context = { base: snapshot(mergeBase), head: snapshot(head) };
+    const head = git(cwd, 'rev-parse', '--verify', `${headRef}^{commit}`).trim();
+    const context = { base: snapshot(cwd, mergeBase), head: snapshot(cwd, head), warn: log };
     const findings = detectors.flatMap((detect) => detect(context));
 
     if (findings.length === 0) {
-        console.log('✓ No new page, section or check, so CLAUDE.md and the verify skill need no update');
+        log('✓ No new page, section or check, so CLAUDE.md and the verify skill need no update');
         return 0;
     }
 
-    const changed = gitPaths('diff', '--name-only', mergeBase, head);
+    // --no-renames lists both sides, so moving a file out of the verify skill still counts as changing it.
+    const changed = gitPaths(cwd, 'diff', '--name-only', '--no-renames', mergeBase, head);
     const missing = [];
     if (!changed.includes('CLAUDE.md')) missing.push('CLAUDE.md');
     if (!changed.some((path) => path.startsWith('.claude/skills/verify/'))) missing.push('.claude/skills/verify/');
     const summary = findings.map((f) => `  - [${f.kind}] ${f.detail}`).join('\n');
 
     if (missing.length === 0) {
-        console.log(`✓ This PR adds:\n${summary}\nand updates CLAUDE.md and the verify skill`);
+        log(`✓ This PR adds:\n${summary}\nand updates CLAUDE.md and the verify skill`);
         return 0;
     }
-    if (process.env.SKIP_CLAUDE_DOCS === 'true') {
-        console.log(`This PR adds:\n${summary}`);
-        console.log(`::warning::The ${SKIP_LABEL} label skips the check that this PR updates ${missing.join(' and ')}`);
+    if (env.SKIP_CLAUDE_DOCS === 'true') {
+        log(`This PR adds:\n${summary}`);
+        log(`::warning::The ${SKIP_LABEL} label skips the check that this PR updates ${missing.join(' and ')}`);
         return 0;
     }
 
-    for (const f of findings) console.log(`::error file=${escapeProperty(f.file)}::${escapeData(f.detail)}`);
-    console.error(
+    for (const f of findings) log(`::error file=${escapeProperty(f.file)}::${escapeData(f.detail)}`);
+    error(
         [
             `This PR adds:\n${summary}`,
             '',
@@ -230,12 +238,12 @@ const main = () => {
     return 1;
 };
 
-if (import.meta.main) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {
-        process.exit(main());
+        if (loadError) throw new CheckError('js-yaml is not installed; run `pnpm install --frozen-lockfile`');
+        process.exit(main({ args: process.argv.slice(2), env: process.env }));
     } catch (error) {
-        if (!(error instanceof CheckError)) throw error;
-        console.error(error.message);
+        console.error(error instanceof CheckError ? error.message : (error?.stack ?? String(error)));
         process.exit(2);
     }
 }
