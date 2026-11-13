@@ -8,9 +8,12 @@ import { fileURLToPath } from 'node:url';
 
 // Loaded lazily so a missing install exits 2 in the CLI instead of crashing on import.
 let load;
+let YAMLException;
+let Lexer;
 let loadError;
 try {
-    ({ load } = await import('js-yaml'));
+    ({ load, YAMLException } = await import('js-yaml'));
+    ({ Lexer } = await import('marked'));
 } catch (error) {
     loadError = error;
 }
@@ -23,16 +26,11 @@ const SECTION_PATH = /^(?:README\.md|src\/.*\.mdx)$/;
 const WORKFLOW_PATH = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 const PR_TRIGGERS = ['pull_request', 'pull_request_target'];
 
-const HEADING = /^ {0,3}#{1,6}(?:[ \t]|$)/;
-// A backtick opener's info string may not contain a backtick, so an inline ```js``` is not a fence.
-const FENCE_OPEN = /^[ \t>]*(?:(`{3,})(?=[^`]*$)|(~{3,}))/;
-const FENCE_CLOSE = /^[ \t>]*(`{3,}|~{3,})[ \t]*$/;
-const COMMENTS = [
-    { open: '<!--', close: '-->' },
-    { open: '{/*', close: '*/}' },
-];
-
 export class CheckError extends Error {}
+
+const requireModules = () => {
+    if (loadError) throw new CheckError('js-yaml or marked is not installed; run `pnpm install --frozen-lockfile`');
+};
 
 const git = (cwd, ...args) => {
     try {
@@ -75,54 +73,22 @@ const pagesOf = (snap) =>
 export const detectPages = ({ base, head }) =>
     grew({ kind: 'page', subject: 'Storybook has', noun: 'page', before: pagesOf(base), after: pagesOf(head) });
 
-// Where a comment is still open at the end of `line`, given the state at its start.
-const commentAfter = (line, open) => {
-    let at = 0;
-    for (;;) {
-        if (open) {
-            const end = line.indexOf(open.close, at);
-            if (end < 0) return open;
-            at = end + open.close.length;
-            open = null;
-        } else {
-            let next = null;
-            let nextAt = -1;
-            for (const comment of COMMENTS) {
-                const found = line.indexOf(comment.open, at);
-                if (found >= 0 && (nextAt < 0 || found < nextAt)) [next, nextAt] = [comment, found];
-            }
-            if (!next) return null;
-            open = next;
-            at = nextAt + next.open.length;
-        }
-    }
-};
+// marked does not know MDX comments. Newlines inside one are kept so line structure is unchanged.
+const MDX_COMMENT = /\{\/\*[\s\S]*?\*\/\}/g;
 
-// Skips ATX-looking lines in code fences and comments, such as `# comment` in a bash block.
-export const headingsOf = (markdown) => {
-    const found = [];
-    let fence = null;
-    let comment = null;
-    for (const line of markdown.split(/\r?\n/)) {
-        if (fence) {
-            const close = FENCE_CLOSE.exec(line);
-            if (close && close[1][0] === fence.char && close[1].length >= fence.length) fence = null;
-            continue;
-        }
-        if (!comment) {
-            const open = FENCE_OPEN.exec(line);
-            if (open) {
-                const marker = open[1] ?? open[2];
-                fence = { char: marker[0], length: marker.length };
-                continue;
-            }
-            if (HEADING.test(line)) {
-                found.push(line.replace(/^ {0,3}#{1,6}[ \t]*/, '').replace(/[ \t]+#+[ \t]*$/, '').trim());
-            }
-        }
-        comment = commentAfter(line, comment);
+// Code and html tokens hold fenced `# comment` lines and <!-- --> comments, so they are skipped.
+const collectHeadings = (tokens, found) => {
+    for (const token of tokens) {
+        if (token.type === 'heading') found.push(token.text.trim());
+        else if (token.type === 'list') for (const item of token.items) collectHeadings(item.tokens, found);
+        else if (token.type !== 'code' && token.type !== 'html' && token.tokens) collectHeadings(token.tokens, found);
     }
     return found;
+};
+
+export const headingsOf = (markdown) => {
+    requireModules();
+    return collectHeadings(Lexer.lex(markdown.replace(MDX_COMMENT, (comment) => comment.replace(/[^\n]/g, ''))), []);
 };
 
 // Compared by text alone, so a heading moved between files names nothing new.
@@ -143,12 +109,14 @@ export const runsOnPullRequest = (on) => {
 
 // Parses every workflow once. A job without steps (a reusable-workflow call) counts 0 steps.
 const parseWorkflows = (snap) => {
+    requireModules();
     const workflows = new Map();
     const invalid = new Set();
     for (const file of [...snap.files].filter((path) => WORKFLOW_PATH.test(path))) {
         try {
             workflows.set(file, load(snap.read(file)));
-        } catch {
+        } catch (error) {
+            if (!(error instanceof YAMLException)) throw error;
             invalid.add(file);
         }
     }
@@ -239,7 +207,7 @@ export const main = ({ args = [], env = {}, cwd = process.cwd(), log = console.l
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {
-        if (loadError) throw new CheckError('js-yaml is not installed; run `pnpm install --frozen-lockfile`');
+        requireModules();
         process.exit(main({ args: process.argv.slice(2), env: process.env }));
     } catch (error) {
         console.error(error instanceof CheckError ? error.message : (error?.stack ?? String(error)));

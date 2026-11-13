@@ -31,7 +31,7 @@ describe('headingsOf', () => {
         ['trailing #s stripped', '## Title ###', ['Title']],
         ['backtick fence', '```bash\n# comment\n```\n# Real', ['Real']],
         ['tilde fence', '~~~\n# comment\n~~~\n# Real', ['Real']],
-        ['indented fence in a list item', '- item\n\n      ```\n  # no\n      ```\n# Real', ['Real']],
+        ['indented code in a list item leaves a following list-item heading', '- item\n\n      ```\n  # no\n      ```\n# Real', ['no', 'Real']],
         ['fence behind a blockquote', '> ```\n> # no\n> ```\n# Real', ['Real']],
         ['shorter closing fence does not close', '````\n```\n# no\n````\n# Real', ['Real']],
         ['other fence char does not close', '```\n~~~\n# no\n```\n# Real', ['Real']],
@@ -44,11 +44,21 @@ describe('headingsOf', () => {
         ['inline triple backticks are not a fence', '```js``` text\n# Real', ['Real']],
         ['backtick opener with a backtick in its info string', '```a`b\n# Real', ['Real']],
         ['tilde opener may contain backticks', '~~~ a`b\n# no\n~~~\n# Real', ['Real']],
-        ['comment reopened on the same line', '<!-- a --><!--\n# no\n-->\n# Real', ['Real']],
-        ['comment opened mid-line', 'text <!--\n# no\n-->\n# Real', ['Real']],
-        ['comment closed then reopened mid-line', '<!--\n--> x <!--\n# no\n-->\n# Real', ['Real']],
-        ['heading before a trailing opener counts', '# Real <!--\n# no\n-->', ['Real <!--']],
+        ['a one-line comment block ends there, so the next heading counts', '<!-- a --><!--\n# no\n-->\n# Real', ['no', 'Real']],
+        ['<!-- mid-paragraph is not a comment block', 'text <!--\n# no\n-->\n# Real', ['no', 'Real']],
+        ['comment block closed by --> ends there', '<!--\n--> x <!--\n# no\n-->\n# Real', ['no', 'Real']],
+        ['heading text keeps a trailing <!--', '# Real <!--\n# no\n-->', ['Real <!--', 'no']],
         ['comment spans a fence line', '<!--\n```\n# no\n-->\n# Real', ['Real']],
+        [
+            'fence opening an ordered list item',
+            '# Title\n## Install\n1. ```bash\n   # comment\n   ```\n## Usage\n## API',
+            ['Title', 'Install', 'Usage', 'API'],
+        ],
+        ['fence opening a dash list item', '- ```bash\n  # comment\n  ```\n## B', ['B']],
+        ['<!-- inside an inline code span', 'Type `<!--` to open one.\n## A', ['A']],
+        ['setext heading', 'Title\n=====\n\nSub\n---', ['Title', 'Sub']],
+        ['heading inside a list item', '- item\n\n  ## Nested', ['Nested']],
+        ['MDX comment mid-line', 'text {/* # no */} more\n# Real', ['Real']],
     ])('%s', (_name, markdown, expected) => {
         expect(headingsOf(markdown)).toEqual(expected);
     });
@@ -151,6 +161,16 @@ describe('detectChecks', () => {
         const findings = run(detectChecks, baseFiles, head, { warn: (line) => warnings.push(line) });
         return { findings, warnings };
     };
+
+    it('a read failure that is not a YAML error is not swallowed', () => {
+        const unreadable = {
+            files: new Set([ci]),
+            read: () => {
+                throw new Error('boom');
+            },
+        };
+        expect(() => detectChecks({ base: unreadable, head: unreadable })).toThrow('boom');
+    });
 
     it.each([['pull_request'], ['[push, pull_request]'], ['{ pull_request: {} }'], ['pull_request_target']])(
         'extra step fires with on: %s',
