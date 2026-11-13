@@ -34,7 +34,7 @@ A wrong Node major, or a dirty tree, is `BLOCKED` until fixed.
 
 ### 1. CI checks (every change)
 
-The same commands, in the same order, as the CI `Test` job:
+The commands of the CI `Test` job in its order, with `tsc -b` and a second `pnpm lint` added, then the `Claude docs` check:
 
 ```sh
 pnpm lint
@@ -44,9 +44,13 @@ pnpm build:lib
 pnpm check:package
 pnpm build-storybook
 pnpm lint                     # again: proves the Storybook output stays ignored
+git fetch origin main
+node scripts/check-claude-docs.mjs
 ```
 
-`tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips.
+`tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips. CI builds Storybook only on pull requests.
+
+`check-claude-docs.mjs` is the `Claude docs` workflow, run locally against `origin/main`. It exits 1 when the branch adds a page, a section or a check and doesn't also change `CLAUDE.md` and this skill. The Conventions section of `CLAUDE.md` defines all three. Fix a failure by updating both: `features/` for a new page or section, this step's command list for a new check.
 
 ### 2. Consumer drive (any change under `src/`, the build config or `package.json`)
 
