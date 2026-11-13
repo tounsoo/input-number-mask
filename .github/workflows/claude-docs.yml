@@ -40,5 +40,5 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          SKIP_CLAUDE_DOCS: ${{ contains(github.event.pull_request.labels.*.name, 'skip-claude-docs-check') }}
         run: node scripts/check-claude-docs.mjs "$BASE_SHA" "$HEAD_SHA"
