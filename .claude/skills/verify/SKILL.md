@@ -34,7 +34,7 @@ A wrong Node major, or a dirty tree, is `BLOCKED` until fixed.
 
 ### 1. CI checks (every change)
 
-The same commands, in the same order, as the CI `Test` job:
+The commands of the CI `Test` job in its order, with `tsc -b` and a second `pnpm lint` added, then the `Claude docs` check:
 
 ```sh
 pnpm lint
@@ -44,9 +44,13 @@ pnpm build:lib
 pnpm check:package
 pnpm build-storybook
 pnpm lint                     # again: proves the Storybook output stays ignored
+git fetch origin main
+node scripts/check-claude-docs.mjs
 ```
 
-`tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips.
+`tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips. CI builds Storybook only on pull requests.
+
+`check-claude-docs.mjs` is the `Claude docs` workflow, run on the committed branch against `origin/main`. Exit 0 passes. Exit 1 means the branch adds a page, a section or a check without changing both `CLAUDE.md` and this skill; the Conventions section of `CLAUDE.md` defines all three and says what to update. Exit 2 means it couldn't run, usually a missing `origin/main`, a shallow clone or an install that hasn't run, so the step is `BLOCKED` until `git fetch origin main` (with more history if needed) or `pnpm install --frozen-lockfile` lets it run.
 
 ### 2. Consumer drive (any change under `src/`, the build config or `package.json`)
 

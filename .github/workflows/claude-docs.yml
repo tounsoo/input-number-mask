@@ -1,0 +1,44 @@
+name: Claude docs
+
+# A PR that adds a page, a section or a check must also change CLAUDE.md and the verify skill.
+# A maintainer can add the skip-claude-docs-check label for a false positive.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: CLAUDE.md and verify skill
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Reads the pnpm version from packageManager in package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check CLAUDE.md and the verify skill
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SKIP_CLAUDE_DOCS: ${{ contains(github.event.pull_request.labels.*.name, 'skip-claude-docs-check') }}
+        run: node scripts/check-claude-docs.mjs "$BASE_SHA" "$HEAD_SHA"
