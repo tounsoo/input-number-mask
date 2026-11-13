@@ -31,7 +31,11 @@ describe('headingsOf', () => {
         ['trailing #s stripped', '## Title ###', ['Title']],
         ['backtick fence', '```bash\n# comment\n```\n# Real', ['Real']],
         ['tilde fence', '~~~\n# comment\n~~~\n# Real', ['Real']],
-        ['indented code in a list item leaves a following list-item heading', '- item\n\n      ```\n  # no\n      ```\n# Real', ['no', 'Real']],
+        [
+            'indented code in a list item leaves a following list-item heading',
+            '- item\n\n      ```\n  # no\n      ```\n# Real',
+            ['no', 'Real'],
+        ],
         ['fence behind a blockquote', '> ```\n> # no\n> ```\n# Real', ['Real']],
         ['shorter closing fence does not close', '````\n```\n# no\n````\n# Real', ['Real']],
         ['other fence char does not close', '```\n~~~\n# no\n```\n# Real', ['Real']],
@@ -86,12 +90,19 @@ describe('headingsOf in MDX', () => {
         ['MDX comment mid-line', 'text {/* # no */} more\n# Real', ['Real']],
         ['heading right after a JSX line', '<Meta title="Getting Started" />\n# Title\n\n## A', ['Title', 'A']],
         ['heading right after a self-closing component', '#### Props\n<ArgTypes of={P} />\n#### Options', ['Props', 'Options']],
-        ['headings around a JSX block', '<Canvas>\n\n## Inside\n\n</Canvas>\n## After', ['Inside', 'After']],
+        ['a heading inside a component does not count', '<Canvas>\n\n## Inside\n\n</Canvas>\n## After', ['After']],
+        ['a heading inside a member component does not count', '<Docs.Panel>\n\n## Inside\n\n</Docs.Panel>', []],
+        ['a heading inside an HTML element counts', '<div>\n\n## Inside\n\n</div>\n## After', ['Inside', 'After']],
+        ['a heading inside a fragment counts', '<>\n\n## Inside\n\n</>', ['Inside']],
         ['{/* in inline code opens no comment', 'Write `{/*` to open one.\n\n## A\n\nand `*/}` to close.\n## B', ['A', 'B']],
         ['{/* in a fence opens no comment', '```\n{/*\n```\n\n## A\n\n{/* todo */}\n\n## B', ['A', 'B']],
         ['a fenced # line still is not a heading', '```bash\n# comment\n```\n# Real', ['Real']],
         ['# line in a template literal prop', '<Source language="bash" code={`\n# install\npnpm add x\n`} />\n\n## A', ['A']],
-        ['## line in Meta parameters', '<Meta\n  title="a"\n  parameters={{ docs: { description: { component: `\n## Usage\n` } } }}\n/>\n\n# T', ['T']],
+        [
+            '## line in Meta parameters',
+            '<Meta\n  title="a"\n  parameters={{ docs: { description: { component: `\n## Usage\n` } } }}\n/>\n\n# T',
+            ['T'],
+        ],
         ['--- under a JSX line is a rule', '<Meta title="X" />\n---\n\n## A', ['A']],
         ['=== under a JSX line is text', '<Canvas />\n===', []],
         ['--- under a component after a heading', '#### Props\n<ArgTypes of={P} />\n---\n### Next', ['Props', 'Next']],
@@ -131,11 +142,18 @@ describe('detectSections with invalid MDX', () => {
     const bad = { 'src/a.mdx': '# A\n## B {\n' };
     it('skips an .mdx file that is invalid at head, with a warning', async () => {
         const warnings = [];
-        expect(await run(detectSections, good, bad, { warn: (line) => warnings.push(line) })).toEqual([]);
+        expect(
+            await run(detectSections, good, bad, {
+                warn: (line) => warnings.push(line),
+            })
+        ).toEqual([]);
         expect(warnings).toEqual(['::warning file=src/a.mdx::src/a.mdx is not valid MDX, so the Claude docs check skips it']);
     });
-    it('counts an .mdx file invalid at base as empty, so repairing it with a new heading fires', async () => {
-        expect(await run(detectSections, bad, { 'src/a.mdx': '# A\n## B\n' }, { warn: () => {} })).toHaveLength(1);
+    it('leaves out an .mdx file invalid at base, so repairing it does not fire', async () => {
+        expect(await run(detectSections, bad, { 'src/a.mdx': '# A\n## B\n' }, { warn: () => {} })).toEqual([]);
+    });
+    it('still counts a new heading in another file', async () => {
+        expect(await run(detectSections, bad, { 'src/a.mdx': '# A\n', 'README.md': '# R\n' }, { warn: () => {} })).toHaveLength(1);
     });
 });
 
@@ -144,18 +162,8 @@ describe('detectSections', () => {
     it.each([
         ['added heading fires', { 'README.md': readme }, { 'README.md': `${readme}## New\n` }, 1],
         ['renamed heading does not', { 'README.md': readme }, { 'README.md': '# Title\n\n## Install\n' }, 0],
-        [
-            'section moved README to mdx does not',
-            { 'README.md': readme },
-            { 'README.md': '# Title\n', 'src/Guide.mdx': '## Setup\n' },
-            0,
-        ],
-        [
-            'renamed mdx with an added heading fires',
-            { 'src/A.mdx': '# A\n' },
-            { 'src/B.mdx': '# A\n## More\n' },
-            1,
-        ],
+        ['section moved README to mdx does not', { 'README.md': readme }, { 'README.md': '# Title\n', 'src/Guide.mdx': '## Setup\n' }, 0],
+        ['renamed mdx with an added heading fires', { 'src/A.mdx': '# A\n' }, { 'src/B.mdx': '# A\n## More\n' }, 1],
         ['renamed mdx alone does not', { 'src/A.mdx': '# A\n' }, { 'src/B.mdx': '# A\n' }, 0],
         ['new mdx page with headings fires', { 'README.md': readme }, { 'README.md': readme, 'src/N.mdx': '# N\n' }, 1],
         ['heading in a fence does not', { 'README.md': readme }, { 'README.md': `${readme}\`\`\`\n# x\n\`\`\`\n` }, 0],
@@ -168,7 +176,7 @@ describe('detectSections', () => {
         const [finding] = await run(
             detectSections,
             { 'README.md': '# A\n## Setup\n' },
-            { 'README.md': '# A\n## Setup\n', 'src/G.mdx': '## Setup\n' },
+            { 'README.md': '# A\n## Setup\n', 'src/G.mdx': '## Setup\n' }
         );
         expect(finding.file).toBe('src/G.mdx');
         expect(finding.detail).toBe('Docs have 3 headings, up from 2 (new: "Setup" in src/G.mdx)');
@@ -233,7 +241,9 @@ describe('detectChecks', () => {
     const base = { [ci]: workflow('pull_request', { test: 2, lint: 1 }) };
     const check = (head, baseFiles = base) => {
         const warnings = [];
-        const findings = run(detectChecks, baseFiles, head, { warn: (line) => warnings.push(line) });
+        const findings = run(detectChecks, baseFiles, head, {
+            warn: (line) => warnings.push(line),
+        });
         return { findings, warnings };
     };
 
@@ -252,7 +262,7 @@ describe('detectChecks', () => {
         (on) => {
             const before = { [ci]: workflow(on, { test: 2 }) };
             expect(check({ [ci]: workflow(on, { test: 3 }) }, before).findings).toHaveLength(1);
-        },
+        }
     );
 
     it.each([
@@ -263,7 +273,14 @@ describe('detectChecks', () => {
         ['renamed workflow file does not', { '.github/workflows/ci2.yml': base[ci] }, 0],
         ['removed step does not', { [ci]: workflow('pull_request', { test: 1, lint: 1 }) }, 0],
         ['push-only workflow change does not', { [ci]: base[ci], '.github/workflows/p.yml': workflow('push', { a: 4 }) }, 0],
-        ['new PR workflow fires', { [ci]: base[ci], '.github/workflows/n.yml': workflow('pull_request', { a: 1 }) }, 2],
+        [
+            'new PR workflow fires',
+            {
+                [ci]: base[ci],
+                '.github/workflows/n.yml': workflow('pull_request', { a: 1 }),
+            },
+            2,
+        ],
     ])('%s', async (_name, head, count) => {
         expect(check(head).findings).toHaveLength(count);
     });
@@ -274,7 +291,9 @@ describe('detectChecks', () => {
     });
 
     it('reports totals and new job ids', async () => {
-        const { findings } = check({ [ci]: workflow('pull_request', { test: 2, lint: 1, build: 2 }) });
+        const { findings } = check({
+            [ci]: workflow('pull_request', { test: 2, lint: 1, build: 2 }),
+        });
         expect(findings.map((f) => f.detail)).toEqual([
             `PR workflows have 3 jobs, up from 2 (new: build in ${ci})`,
             `PR workflows have 5 steps, up from 3 (more in: ${ci})`,
@@ -285,7 +304,7 @@ describe('detectChecks', () => {
         const bad = '.github/workflows/release.yml';
         const { findings, warnings } = check(
             { [ci]: base[ci], [bad]: 'on: [pull_request\n' },
-            { [ci]: base[ci], [bad]: workflow('pull_request', { a: 1 }) },
+            { [ci]: base[ci], [bad]: workflow('pull_request', { a: 1 }) }
         );
         expect(findings).toEqual([]);
         expect(warnings).toEqual([`::warning file=${bad}::${bad} is not valid YAML, so the Claude docs check skips it`]);
@@ -293,7 +312,10 @@ describe('detectChecks', () => {
 
     it('a job named like an existing job in another file is still named', async () => {
         const other = '.github/workflows/other.yml';
-        const { findings } = check({ [ci]: base[ci], [other]: workflow('pull_request', { test: 1 }) });
+        const { findings } = check({
+            [ci]: base[ci],
+            [other]: workflow('pull_request', { test: 1 }),
+        });
         expect(findings.map((f) => f.detail)).toEqual([
             `PR workflows have 3 jobs, up from 2 (new: test in ${other})`,
             `PR workflows have 4 steps, up from 3 (more in: ${other})`,
@@ -358,7 +380,13 @@ describe('main', () => {
     const exec = async (cwd, env = {}, args = ['main', 'HEAD']) => {
         const out = [];
         const err = [];
-        const code = await main({ args, env, cwd, log: (line) => out.push(line), error: (line) => err.push(line) });
+        const code = await main({
+            args,
+            env,
+            cwd,
+            log: (line) => out.push(line),
+            error: (line) => err.push(line),
+        });
         return { code, out: out.join('\n'), err: err.join('\n') };
     };
     const story = { 'src/New.stories.tsx': '' };
@@ -390,7 +418,9 @@ describe('main', () => {
     });
 
     it('warns instead of failing when SKIP_CLAUDE_DOCS is true', async () => {
-        const { code, out, err } = await exec(repo({}, story), { SKIP_CLAUDE_DOCS: 'true' });
+        const { code, out, err } = await exec(repo({}, story), {
+            SKIP_CLAUDE_DOCS: 'true',
+        });
         expect(code).toBe(0);
         expect(out).toContain('::warning::');
         expect(err).toBe('');

@@ -34,12 +34,20 @@ const requireModules = () => {
 
 const git = (cwd, ...args) => {
     try {
-        return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+        return execFileSync('git', args, {
+            cwd,
+            encoding: 'utf8',
+            maxBuffer: 64 * 1024 * 1024,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
     } catch (error) {
         throw new CheckError(`git ${args.join(' ')} failed: ${String(error.stderr || error.message).trim()}`);
     }
 };
-const gitPaths = (cwd, ...args) => git(cwd, ...args, '-z').split('\0').filter(Boolean);
+const gitPaths = (cwd, ...args) =>
+    git(cwd, ...args, '-z')
+        .split('\0')
+        .filter(Boolean);
 
 const snapshot = (cwd, rev) => ({
     files: new Set(gitPaths(cwd, 'ls-tree', '-r', '--name-only', rev)),
@@ -64,29 +72,44 @@ const grew = ({ kind, subject, noun, word = 'new', before, after }) => {
         return left <= 0;
     });
     const names = list([...new Set(fresh.map(({ label }) => label))]);
-    return [{ kind, file: fresh[0].file, detail: `${subject} ${count(after.length, noun)}, up from ${before.length} (${word}: ${names})` }];
+    return [
+        {
+            kind,
+            file: fresh[0].file,
+            detail: `${subject} ${count(after.length, noun)}, up from ${before.length} (${word}: ${names})`,
+        },
+    ];
 };
 
-const pagesOf = (snap) =>
-    [...snap.files].filter((path) => PAGE_PATH.test(path)).map((path) => ({ key: path, file: path, label: path }));
+const pagesOf = (snap) => [...snap.files].filter((path) => PAGE_PATH.test(path)).map((path) => ({ key: path, file: path, label: path }));
 
 export const detectPages = ({ base, head }) =>
-    grew({ kind: 'page', subject: 'Storybook has', noun: 'page', before: pagesOf(base), after: pagesOf(head) });
+    grew({
+        kind: 'page',
+        subject: 'Storybook has',
+        noun: 'page',
+        before: pagesOf(base),
+        after: pagesOf(head),
+    });
 
 // Front matter opens with a `key:` line, which tells it apart from a leading horizontal rule.
 const FRONT_MATTER = /^﻿?---\r?\n(?=[\w-]+:)[\s\S]*?\r?\n---[ \t]*(?=\r?\n|$)/;
 const blank = (text) => text.replace(/[^\n]/g, ' ');
 
 const textOf = (node) => node.value ?? (node.children ?? []).map(textOf).join('');
+// A component decides what to render, and Storybook's <Canvas> drops its children, so headings
+// inside a component don't count. An HTML element such as <div> renders its children.
+const isComponent = (node) => node.type.startsWith('mdxJsx') && /^[A-Z]|\./.test(node.name ?? '');
 const collectNodes = (node, found) => {
     if (node.type === 'heading') found.push(textOf(node).trim());
+    if (isComponent(node)) return found;
     for (const child of node.children ?? []) collectNodes(child, found);
     return found;
 };
 
 // Runs Storybook's MDX compiler, which parses with remark, and a remark plugin that reads the
-// headings it parsed. As `md` it reads plain CommonMark, as GitHub does; as `mdx`, MDX.
-const parseHeadings = (source, format) =>
+// headings it parsed. As `md` it reads CommonMark, which GitHub's Markdown extends; as `mdx`, MDX.
+const parseHeadings = (source, format, file) =>
     new Promise((settle, fail) => {
         let found;
         const readHeadings = () => (tree) => {
@@ -94,24 +117,30 @@ const parseHeadings = (source, format) =>
         };
         const done = (error) => {
             if (error) fail(error);
-            else if (!found) fail(new CheckError("@storybook/addon-docs/mdx-loader ran without the heading reader; its options may have changed"));
+            else if (!found)
+                fail(new CheckError('@storybook/addon-docs/mdx-loader ran without the heading reader; its options may have changed'));
             else settle(found);
         };
-        mdxLoader.call(
-            {
-                async: () => done,
-                getOptions: () => ({ mdxCompileOptions: { format, remarkPlugins: [readHeadings] } }),
-                resourcePath: 'docs.mdx',
-            },
-            source,
-        );
+        // A loader that throws before its own try rejects instead of calling back.
+        Promise.resolve(
+            mdxLoader.call(
+                {
+                    async: () => done,
+                    getOptions: () => ({
+                        mdxCompileOptions: { format, remarkPlugins: [readHeadings] },
+                    }),
+                    resourcePath: file,
+                },
+                source
+            )
+        ).catch(fail);
     });
 
-// README.md is read as GitHub renders it, skipping front matter, which GitHub shows as a table.
+// README.md is read as CommonMark, skipping front matter, which GitHub shows as a table.
 // An .mdx file is read by the compiler Storybook renders it with, so a page's headings match.
-export const headingsOf = async (markdown, { mdx = false } = {}) => {
+export const headingsOf = async (markdown, { mdx = false, file = 'docs.mdx' } = {}) => {
     requireModules();
-    return mdx ? parseHeadings(markdown, 'mdx') : parseHeadings(markdown.replace(FRONT_MATTER, blank), 'md');
+    return mdx ? parseHeadings(markdown, 'mdx', file) : parseHeadings(markdown.replace(FRONT_MATTER, blank), 'md', file);
 };
 
 // The MDX compiler reports a syntax error as a vfile message.
@@ -122,7 +151,7 @@ const parseDocs = async (snap) => {
     const invalid = new Set();
     for (const file of [...snap.files].filter((path) => SECTION_PATH.test(path))) {
         try {
-            docs.set(file, await headingsOf(snap.read(file), { mdx: file.endsWith('.mdx') }));
+            docs.set(file, await headingsOf(snap.read(file), { mdx: file.endsWith('.mdx'), file }));
         } catch (error) {
             if (!isMdxError(error)) throw error;
             invalid.add(file);
@@ -135,22 +164,29 @@ const parseDocs = async (snap) => {
 const headingItems = ({ docs }, skip) =>
     [...docs]
         .filter(([file]) => !skip.has(file))
-        .flatMap(([file, headings]) => headings.map((text) => ({ key: text, file, label: `"${text}" in ${file}` })));
+        .flatMap(([file, headings]) =>
+            headings.map((text) => ({
+                key: text,
+                file,
+                label: `"${text}" in ${file}`,
+            }))
+        );
 
-// Storybook's build reports a broken .mdx file itself, so one invalid at head is left out of both
-// sides, the way an invalid workflow is.
+// Storybook's build reports a broken .mdx file itself. One invalid on either side is left out of
+// both, so neither breaking nor repairing it counts its headings as new.
 export const detectSections = async ({ base, head, warn = console.log }) => {
     const baseParsed = await parseDocs(base);
     const headParsed = await parseDocs(head);
     for (const file of headParsed.invalid) {
         warn(`::warning file=${escapeProperty(file)}::${escapeData(`${file} is not valid MDX, so the Claude docs check skips it`)}`);
     }
+    const skip = new Set([...baseParsed.invalid, ...headParsed.invalid]);
     return grew({
         kind: 'section',
         subject: 'Docs have',
         noun: 'heading',
-        before: headingItems(baseParsed, headParsed.invalid),
-        after: headingItems(headParsed, headParsed.invalid),
+        before: headingItems(baseParsed, skip),
+        after: headingItems(headParsed, skip),
     });
 };
 
@@ -181,10 +217,19 @@ const prJobs = ({ workflows }, skip) =>
     [...workflows]
         .filter(([file, doc]) => !skip.has(file) && doc && typeof doc === 'object' && runsOnPullRequest(doc.on))
         .flatMap(([file, doc]) =>
-            Object.entries(doc.jobs ?? {}).map(([id, job]) => ({ file, id, steps: Array.isArray(job?.steps) ? job.steps.length : 0 })),
+            Object.entries(doc.jobs ?? {}).map(([id, job]) => ({
+                file,
+                id,
+                steps: Array.isArray(job?.steps) ? job.steps.length : 0,
+            }))
         );
 
-const jobItems = (jobs) => jobs.map(({ file, id }) => ({ key: `${file}:${id}`, file, label: `${id} in ${file}` }));
+const jobItems = (jobs) =>
+    jobs.map(({ file, id }) => ({
+        key: `${file}:${id}`,
+        file,
+        label: `${id} in ${file}`,
+    }));
 const stepItems = (jobs) => jobs.flatMap(({ file, steps }) => Array.from({ length: steps }, () => ({ key: file, file, label: file })));
 
 // GitHub reports a broken workflow itself. One invalid at head is left out of both sides; one
@@ -199,8 +244,21 @@ export const detectChecks = ({ base, head, warn = console.log }) => {
     const after = prJobs(headParsed, headParsed.invalid);
     const subject = 'PR workflows have';
     return [
-        ...grew({ kind: 'check', subject, noun: 'job', before: jobItems(before), after: jobItems(after) }),
-        ...grew({ kind: 'check', subject, noun: 'step', word: 'more in', before: stepItems(before), after: stepItems(after) }),
+        ...grew({
+            kind: 'check',
+            subject,
+            noun: 'job',
+            before: jobItems(before),
+            after: jobItems(after),
+        }),
+        ...grew({
+            kind: 'check',
+            subject,
+            noun: 'step',
+            word: 'more in',
+            before: stepItems(before),
+            after: stepItems(after),
+        }),
     ];
 };
 
@@ -218,11 +276,16 @@ export const main = async ({ args = [], env = {}, cwd = process.cwd(), log = con
     try {
         mergeBase = git(cwd, 'merge-base', baseRef, headRef).trim();
     } catch (cause) {
-        const hint = args.length < 1 ? ' Run `git fetch origin main` first; in a shallow clone, fetch more history (`git fetch --unshallow`).' : '';
+        const hint =
+            args.length < 1 ? ' Run `git fetch origin main` first; in a shallow clone, fetch more history (`git fetch --unshallow`).' : '';
         throw new CheckError(`${cause.message}${hint}`);
     }
     const head = git(cwd, 'rev-parse', '--verify', `${headRef}^{commit}`).trim();
-    const context = { base: snapshot(cwd, mergeBase), head: snapshot(cwd, head), warn: log };
+    const context = {
+        base: snapshot(cwd, mergeBase),
+        head: snapshot(cwd, head),
+        warn: log,
+    };
     const findings = [];
     for (const detect of detectors) findings.push(...(await detect(context)));
 
@@ -253,9 +316,11 @@ export const main = async ({ args = [], env = {}, cwd = process.cwd(), log = con
         [
             `This PR adds:\n${summary}`,
             '',
-            `Update ${missing.join(' and ')} in the same PR to describe the change. The Conventions section of CLAUDE.md defines what counts as a page, a section and a check.`,
+            `Update ${missing.join(
+                ' and '
+            )} in the same PR to describe the change. The Conventions section of CLAUDE.md defines what counts as a page, a section and a check.`,
             `If this is a false positive, a maintainer can add the ${SKIP_LABEL} label.`,
-        ].join('\n'),
+        ].join('\n')
     );
     return 1;
 };
@@ -265,7 +330,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         requireModules();
         process.exit(await main({ args: process.argv.slice(2), env: process.env }));
     } catch (error) {
-        console.error(error instanceof CheckError ? error.message : (error?.stack ?? String(error)));
+        console.error(error instanceof CheckError ? error.message : error?.stack ?? String(error));
         process.exit(2);
     }
 }
