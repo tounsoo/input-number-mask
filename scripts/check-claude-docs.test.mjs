@@ -56,20 +56,26 @@ describe('headingsOf', () => {
         ['<!-- inside an inline code span', 'Type `<!--` to open one.\n## A', ['A']],
         ['setext heading', 'Title\n=====\n\nSub\n---', ['Title', 'Sub']],
         ['heading inside a list item', '- item\n\n  ## Nested', ['Nested']],
-    ])('%s', (_name, markdown, expected) => {
-        expect(headingsOf(markdown)).toEqual(expected);
+    ])('%s', async (_name, markdown, expected) => {
+        expect(await headingsOf(markdown)).toEqual(expected);
     });
 });
 
 describe('headingsOf front matter', () => {
-    it.each([
-        ['README', false],
-        ['MDX', true],
-    ])('%s skips leading front matter', (_name, mdx) => {
-        expect(headingsOf('---\ntitle: Button\nsidebar: true\n---\n\n## Install\n', { mdx })).toEqual(['Install']);
+    it('README skips leading front matter', async () => {
+        expect(await headingsOf('---\ntitle: Button\nsidebar: true\n---\n\n## Install\n')).toEqual(['Install']);
     });
-    it('a later --- block is not front matter', () => {
-        expect(headingsOf('# A\n\n---\ntitle: x\n---\n')).toEqual(['A', 'title: x']);
+    it('a leading horizontal rule is not front matter', async () => {
+        expect(await headingsOf('---\n\n# Title\n\nText\n\n---\n\n## Two')).toEqual(['Title', 'Two']);
+    });
+    it('front matter after a byte order mark is skipped', async () => {
+        expect(await headingsOf('﻿---\ntitle: x\n---\n## A')).toEqual(['A']);
+    });
+    it('a later --- block is not front matter', async () => {
+        expect(await headingsOf('# A\n\n---\ntitle: x\n---\n')).toEqual(['A', 'title: x']);
+    });
+    it('MDX has no front matter in Storybook, so its last line renders as a heading', async () => {
+        expect(await headingsOf('---\ntitle: x\n---\n## A', { mdx: true })).toEqual(['title: x', 'A']);
     });
 });
 
@@ -84,30 +90,52 @@ describe('headingsOf in MDX', () => {
         ['{/* in inline code opens no comment', 'Write `{/*` to open one.\n\n## A\n\nand `*/}` to close.\n## B', ['A', 'B']],
         ['{/* in a fence opens no comment', '```\n{/*\n```\n\n## A\n\n{/* todo */}\n\n## B', ['A', 'B']],
         ['a fenced # line still is not a heading', '```bash\n# comment\n```\n# Real', ['Real']],
-    ])('%s', (_name, markdown, expected) => {
-        expect(headingsOf(markdown, { mdx: true })).toEqual(expected);
+        ['# line in a template literal prop', '<Source language="bash" code={`\n# install\npnpm add x\n`} />\n\n## A', ['A']],
+        ['## line in Meta parameters', '<Meta\n  title="a"\n  parameters={{ docs: { description: { component: `\n## Usage\n` } } }}\n/>\n\n# T', ['T']],
+        ['--- under a JSX line is a rule', '<Meta title="X" />\n---\n\n## A', ['A']],
+        ['=== under a JSX line is text', '<Canvas />\n===', []],
+        ['--- under a component after a heading', '#### Props\n<ArgTypes of={P} />\n---\n### Next', ['Props', 'Next']],
+        ['a stray backtick does not hide a later comment', 'Use the ` key.\n\n{/*\n# no\n*/}\n\nSee `x`.\n\n## A', ['A']],
+        ['{/* in a tilde fence opens no comment', '~~~\n{/*\n~~~\n\n## A\n\n{/* x */}\n## B', ['A', 'B']],
+        ['a fence closed by a longer run', '```\na\n````\n\n{/*\n# hidden\n*/}\n\nUse `x` here.\n\n## A', ['A']],
+        ['an escaped backtick', 'Type \\` here.\n\n{/*\n# hidden\n*/}\n\nUse `x`.\n\n## A', ['A']],
+    ])('%s', async (_name, markdown, expected) => {
+        expect(await headingsOf(markdown, { mdx: true })).toEqual(expected);
     });
 
-    it('README keeps GitHub rules: a JSX-looking line starts an HTML block', () => {
-        expect(headingsOf('<p align="center">\n</p>\n## Hidden\n\n## Shown')).toEqual(['Shown']);
+    it('README keeps GitHub rules: a JSX-looking line starts an HTML block', async () => {
+        expect(await headingsOf('<p align="center">\n</p>\n## Hidden\n\n## Shown')).toEqual(['Shown']);
     });
 
-    it('README does not strip {/* */}', () => {
-        expect(headingsOf('Write `{/*` here.\n\n## A\n\n`*/}`\n## B')).toEqual(['A', 'B']);
+    it('README does not strip {/* */}', async () => {
+        expect(await headingsOf('Write `{/*` here.\n\n## A\n\n`*/}`\n## B')).toEqual(['A', 'B']);
     });
 });
 
 describe('detectSections in MDX', () => {
-    it('adding blank lines after JSX does not fire', () => {
+    it('adding blank lines after JSX does not fire', async () => {
         const base = '<Meta title="A" />\n# A\n\nText\n\n#### Props\n<ArgTypes of={P} />\n#### Options\n<ArgTypes of={O} />\n';
         const head = '<Meta title="A" />\n\n# A\n\nText\n\n#### Props\n\n<ArgTypes of={P} />\n\n#### Options\n\n<ArgTypes of={O} />\n';
-        expect(run(detectSections, { 'src/a.mdx': base }, { 'src/a.mdx': head })).toEqual([]);
+        expect(await run(detectSections, { 'src/a.mdx': base }, { 'src/a.mdx': head })).toEqual([]);
     });
 
-    it('a heading added right under JSX fires', () => {
+    it('a heading added right under JSX fires', async () => {
         const base = '#### Props\n<ArgTypes of={P} />\n';
         const head = `${base}#### Return Values\n<ArgTypes of={R} />\n`;
-        expect(run(detectSections, { 'src/a.mdx': base }, { 'src/a.mdx': head })).toHaveLength(1);
+        expect(await run(detectSections, { 'src/a.mdx': base }, { 'src/a.mdx': head })).toHaveLength(1);
+    });
+});
+
+describe('detectSections with invalid MDX', () => {
+    const good = { 'src/a.mdx': '# A\n' };
+    const bad = { 'src/a.mdx': '# A\n## B {\n' };
+    it('skips an .mdx file that is invalid at head, with a warning', async () => {
+        const warnings = [];
+        expect(await run(detectSections, good, bad, { warn: (line) => warnings.push(line) })).toEqual([]);
+        expect(warnings).toEqual(['::warning file=src/a.mdx::src/a.mdx is not valid MDX, so the Claude docs check skips it']);
+    });
+    it('counts an .mdx file invalid at base as empty, so repairing it with a new heading fires', async () => {
+        expect(await run(detectSections, bad, { 'src/a.mdx': '# A\n## B\n' }, { warn: () => {} })).toHaveLength(1);
     });
 });
 
@@ -132,12 +160,12 @@ describe('detectSections', () => {
         ['new mdx page with headings fires', { 'README.md': readme }, { 'README.md': readme, 'src/N.mdx': '# N\n' }, 1],
         ['heading in a fence does not', { 'README.md': readme }, { 'README.md': `${readme}\`\`\`\n# x\n\`\`\`\n` }, 0],
         ['non-doc files are ignored', { 'a.md': '# A' }, { 'a.md': '# A\n# B' }, 0],
-    ])('%s', (_name, base, head, count) => {
-        expect(run(detectSections, base, head)).toHaveLength(count);
+    ])('%s', async (_name, base, head, count) => {
+        expect(await run(detectSections, base, head)).toHaveLength(count);
     });
 
-    it('a heading moved between files names nothing new but a duplicate does', () => {
-        const [finding] = run(
+    it('a heading moved between files names nothing new but a duplicate does', async () => {
+        const [finding] = await run(
             detectSections,
             { 'README.md': '# A\n## Setup\n' },
             { 'README.md': '# A\n## Setup\n', 'src/G.mdx': '## Setup\n' },
@@ -146,8 +174,8 @@ describe('detectSections', () => {
         expect(finding.detail).toBe('Docs have 3 headings, up from 2 (new: "Setup" in src/G.mdx)');
     });
 
-    it('names the new heading and its file', () => {
-        const [finding] = run(detectSections, { 'README.md': readme }, { 'README.md': `${readme}## New\n` });
+    it('names the new heading and its file', async () => {
+        const [finding] = await run(detectSections, { 'README.md': readme }, { 'README.md': `${readme}## New\n` });
         expect(finding.file).toBe('README.md');
         expect(finding.detail).toBe('Docs have 3 headings, up from 2 (new: "New" in README.md)');
     });
@@ -164,18 +192,18 @@ describe('detectPages', () => {
         ['non-story component does not', {}, { 'src/HookAPI.tsx': '' }, 0],
         ['stories outside src do not', {}, { 'docs/A.stories.tsx': '' }, 0],
         ['removal does not', { [story]: '' }, {}, 0],
-    ])('%s', (_name, base, head, count) => {
+    ])('%s', async (_name, base, head, count) => {
         expect(run(detectPages, base, head)).toHaveLength(count);
     });
 
-    it('names the new page', () => {
-        const [finding] = run(detectPages, { 'src/A.mdx': '' }, { 'src/A.mdx': '', [story]: '' });
+    it('names the new page', async () => {
+        const [finding] = await run(detectPages, { 'src/A.mdx': '' }, { 'src/A.mdx': '', [story]: '' });
         expect(finding.file).toBe(story);
         expect(finding.detail).toBe(`Storybook has 2 pages, up from 1 (new: ${story})`);
     });
 
-    it('pluralises a single page', () => {
-        const [finding] = run(detectPages, {}, { [story]: '' });
+    it('pluralises a single page', async () => {
+        const [finding] = await run(detectPages, {}, { [story]: '' });
         expect(finding.detail).toBe(`Storybook has 1 page, up from 0 (new: ${story})`);
     });
 });
@@ -191,7 +219,7 @@ describe('runsOnPullRequest', () => {
         ['object with null value', { pull_request: null }, true],
         ['object without', { push: {} }, false],
         ['missing', undefined, false],
-    ])('%s', (_name, on, expected) => {
+    ])('%s', async (_name, on, expected) => {
         expect(runsOnPullRequest(on)).toBe(expected);
     });
 });
@@ -209,7 +237,7 @@ describe('detectChecks', () => {
         return { findings, warnings };
     };
 
-    it('a read failure that is not a YAML error is not swallowed', () => {
+    it('a read failure that is not a YAML error is not swallowed', async () => {
         const unreadable = {
             files: new Set([ci]),
             read: () => {
@@ -236,16 +264,16 @@ describe('detectChecks', () => {
         ['removed step does not', { [ci]: workflow('pull_request', { test: 1, lint: 1 }) }, 0],
         ['push-only workflow change does not', { [ci]: base[ci], '.github/workflows/p.yml': workflow('push', { a: 4 }) }, 0],
         ['new PR workflow fires', { [ci]: base[ci], '.github/workflows/n.yml': workflow('pull_request', { a: 1 }) }, 2],
-    ])('%s', (_name, head, count) => {
+    ])('%s', async (_name, head, count) => {
         expect(check(head).findings).toHaveLength(count);
     });
 
-    it('a workflow gaining a pull_request trigger fires', () => {
+    it('a workflow gaining a pull_request trigger fires', async () => {
         const pushOnly = { [ci]: workflow('push', { test: 2 }) };
         expect(check({ [ci]: workflow('pull_request', { test: 2 }) }, pushOnly).findings).toHaveLength(2);
     });
 
-    it('reports totals and new job ids', () => {
+    it('reports totals and new job ids', async () => {
         const { findings } = check({ [ci]: workflow('pull_request', { test: 2, lint: 1, build: 2 }) });
         expect(findings.map((f) => f.detail)).toEqual([
             `PR workflows have 3 jobs, up from 2 (new: build in ${ci})`,
@@ -253,7 +281,7 @@ describe('detectChecks', () => {
         ]);
     });
 
-    it('skips invalid YAML at head with a warning and does not throw', () => {
+    it('skips invalid YAML at head with a warning and does not throw', async () => {
         const bad = '.github/workflows/release.yml';
         const { findings, warnings } = check(
             { [ci]: base[ci], [bad]: 'on: [pull_request\n' },
@@ -263,7 +291,7 @@ describe('detectChecks', () => {
         expect(warnings).toEqual([`::warning file=${bad}::${bad} is not valid YAML, so the Claude docs check skips it`]);
     });
 
-    it('a job named like an existing job in another file is still named', () => {
+    it('a job named like an existing job in another file is still named', async () => {
         const other = '.github/workflows/other.yml';
         const { findings } = check({ [ci]: base[ci], [other]: workflow('pull_request', { test: 1 }) });
         expect(findings.map((f) => f.detail)).toEqual([
@@ -273,7 +301,7 @@ describe('detectChecks', () => {
         expect(findings[0].file).toBe(other);
     });
 
-    it('pluralises one job and one step', () => {
+    it('pluralises one job and one step', async () => {
         const { findings } = check({ [ci]: workflow('pull_request', { a: 1 }) }, {});
         expect(findings.map((f) => f.detail)).toEqual([
             `PR workflows have 1 job, up from 0 (new: a in ${ci})`,
@@ -281,19 +309,19 @@ describe('detectChecks', () => {
         ]);
     });
 
-    it('repairing a workflow that was invalid at base fires', () => {
+    it('repairing a workflow that was invalid at base fires', async () => {
         const wf = '.github/workflows/pr.yml';
         const { findings, warnings } = check({ [wf]: workflow('pull_request', { a: 1 }) }, { [wf]: 'on: [pull_request\n' });
         expect(findings).toHaveLength(2);
         expect(warnings).toEqual([]);
     });
 
-    it('a workflow invalid at head is dropped from base too', () => {
+    it('a workflow invalid at head is dropped from base too', async () => {
         const { findings } = check({ [ci]: 'on: [pull_request\n' });
         expect(findings).toEqual([]);
     });
 
-    it('is silent about invalid YAML at base', () => {
+    it('is silent about invalid YAML at base', async () => {
         const bad = '.github/workflows/old.yml';
         const { warnings } = check(base, { ...base, [bad]: 'on: [pull_request\n' });
         expect(warnings).toEqual([]);
@@ -327,72 +355,72 @@ describe('main', () => {
         gitIn(cwd, 'commit', '-qm', 'head');
         return cwd;
     };
-    const exec = (cwd, env = {}, args = ['main', 'HEAD']) => {
+    const exec = async (cwd, env = {}, args = ['main', 'HEAD']) => {
         const out = [];
         const err = [];
-        const code = main({ args, env, cwd, log: (line) => out.push(line), error: (line) => err.push(line) });
+        const code = await main({ args, env, cwd, log: (line) => out.push(line), error: (line) => err.push(line) });
         return { code, out: out.join('\n'), err: err.join('\n') };
     };
     const story = { 'src/New.stories.tsx': '' };
     const docs = { 'CLAUDE.md': 'x', '.claude/skills/verify/x.md': 'x' };
 
-    it('passes when nothing is added', () => {
-        const { code, out } = exec(repo({}, { 'src/util.ts': '' }));
+    it('passes when nothing is added', async () => {
+        const { code, out } = await exec(repo({}, { 'src/util.ts': '' }));
         expect(code).toBe(0);
         expect(out).toContain('No new page');
     });
 
-    it('fails and names both missing docs for a new story', () => {
-        const { code, out, err } = exec(repo({}, story));
+    it('fails and names both missing docs for a new story', async () => {
+        const { code, out, err } = await exec(repo({}, story));
         expect(code).toBe(1);
         expect(out).toContain('::error file=src/New.stories.tsx::Storybook has 1 page');
         expect(err).toContain('Update CLAUDE.md and .claude/skills/verify/ in the same PR');
     });
 
-    it('names only the doc that is missing', () => {
-        const { code, err } = exec(repo({}, { ...story, 'CLAUDE.md': 'x' }));
+    it('names only the doc that is missing', async () => {
+        const { code, err } = await exec(repo({}, { ...story, 'CLAUDE.md': 'x' }));
         expect(code).toBe(1);
         expect(err).toContain('Update .claude/skills/verify/ in the same PR');
     });
 
-    it('passes when CLAUDE.md and the verify skill change too', () => {
-        const { code, out } = exec(repo({}, { ...story, ...docs }));
+    it('passes when CLAUDE.md and the verify skill change too', async () => {
+        const { code, out } = await exec(repo({}, { ...story, ...docs }));
         expect(code).toBe(0);
         expect(out).toContain('and updates CLAUDE.md and the verify skill');
     });
 
-    it('warns instead of failing when SKIP_CLAUDE_DOCS is true', () => {
-        const { code, out, err } = exec(repo({}, story), { SKIP_CLAUDE_DOCS: 'true' });
+    it('warns instead of failing when SKIP_CLAUDE_DOCS is true', async () => {
+        const { code, out, err } = await exec(repo({}, story), { SKIP_CLAUDE_DOCS: 'true' });
         expect(code).toBe(0);
         expect(out).toContain('::warning::');
         expect(err).toBe('');
     });
 
-    it('does not skip for other SKIP_CLAUDE_DOCS values', () => {
-        expect(exec(repo({}, story), { SKIP_CLAUDE_DOCS: '' }).code).toBe(1);
+    it('does not skip for other SKIP_CLAUDE_DOCS values', async () => {
+        expect((await exec(repo({}, story), { SKIP_CLAUDE_DOCS: '' })).code).toBe(1);
     });
 
-    it('counts a file moved out of the verify skill as changing it', () => {
+    it('counts a file moved out of the verify skill as changing it', async () => {
         const cwd = repo({ '.claude/skills/verify/old.md': 'x' }, { ...story, 'CLAUDE.md': 'x', 'docs/old.md': 'x' }, [
             '.claude/skills/verify/old.md',
         ]);
-        expect(exec(cwd).code).toBe(0);
+        expect((await exec(cwd)).code).toBe(0);
     });
 
-    it('throws CheckError for a base ref that does not exist', () => {
+    it('throws CheckError for a base ref that does not exist', async () => {
         const cwd = repo({}, story);
-        expect(() => exec(cwd, {}, ['nope', 'HEAD'])).toThrow(CheckError);
-        expect(() => exec(cwd, {}, ['nope', 'HEAD'])).toThrow(/merge-base nope HEAD failed/);
+        await expect(exec(cwd, {}, ['nope', 'HEAD'])).rejects.toThrow(CheckError);
+        await expect(exec(cwd, {}, ['nope', 'HEAD'])).rejects.toThrow(/merge-base nope HEAD failed/);
     });
 
-    it('throws CheckError outside a repository', () => {
+    it('throws CheckError outside a repository', async () => {
         const cwd = mkdtempSync(join(tmpdir(), 'claude-docs-'));
         dirs.push(cwd);
-        expect(() => exec(cwd, {}, ['main', 'HEAD'])).toThrow(CheckError);
+        await expect(exec(cwd, {}, ['main', 'HEAD'])).rejects.toThrow(CheckError);
     });
 
-    it('throws CheckError for too many arguments', () => {
-        expect(() => main({ args: ['a', 'b', 'c'] })).toThrow(/usage/);
+    it('throws CheckError for too many arguments', async () => {
+        await expect(main({ args: ['a', 'b', 'c'] })).rejects.toThrow(/usage/);
     });
 });
 
@@ -403,7 +431,7 @@ describe('Storybook glob drift guard', () => {
     const block = /stories:\s*\[([^\]]*)\]/.exec(main)?.[1] ?? '';
     const globs = [...block.matchAll(/["'`]([^"'`]+)["'`]/g)].map((match) => match[1]);
 
-    it('lists exactly the globs PAGE_PATH mirrors', () => {
+    it('lists exactly the globs PAGE_PATH mirrors', async () => {
         expect(new Set(globs)).toEqual(new Set(['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)']));
     });
 
@@ -420,7 +448,7 @@ describe('Storybook glob drift guard', () => {
         ['src/Button.stories.cjs', false],
         ['lib/Intro.mdx', false],
         ['Button.stories.tsx', false],
-    ])('%s matches: %s', (path, expected) => {
+    ])('%s matches: %s', async (path, expected) => {
         expect(PAGE_PATH.test(path)).toBe(expected);
     });
 });

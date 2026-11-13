@@ -9,13 +9,11 @@ import { fileURLToPath } from 'node:url';
 // Loaded lazily so a missing install exits 2 in the CLI instead of crashing on import.
 let load;
 let YAMLException;
-let Lexer;
-let Tokenizer;
-let markedDefaults;
+let mdxLoader;
 let loadError;
 try {
     ({ load, YAMLException } = await import('js-yaml'));
-    ({ Lexer, Tokenizer, marked: { defaults: markedDefaults } } = await import('marked'));
+    ({ default: mdxLoader } = await import('@storybook/addon-docs/mdx-loader'));
 } catch (error) {
     loadError = error;
 }
@@ -31,7 +29,7 @@ const PR_TRIGGERS = ['pull_request', 'pull_request_target'];
 export class CheckError extends Error {}
 
 const requireModules = () => {
-    if (loadError) throw new CheckError('js-yaml or marked is not installed; run `pnpm install --frozen-lockfile`');
+    if (loadError) throw new CheckError('js-yaml or @storybook/addon-docs is not installed; run `pnpm install --frozen-lockfile`');
 };
 
 const git = (cwd, ...args) => {
@@ -75,52 +73,86 @@ const pagesOf = (snap) =>
 export const detectPages = ({ base, head }) =>
     grew({ kind: 'page', subject: 'Storybook has', noun: 'page', before: pagesOf(base), after: pagesOf(head) });
 
-const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?=\r?\n|$)/;
-const MDX_COMMENT = /\{\/\*[\s\S]*?\*\/\}/g;
-// Backtick runs paired by length cover both code spans and backtick fences.
-const BACKTICK_CODE = /(`+)[\s\S]*?\1/g;
+// Front matter opens with a `key:` line, which tells it apart from a leading horizontal rule.
+const FRONT_MATTER = /^﻿?---\r?\n(?=[\w-]+:)[\s\S]*?\r?\n---[ \t]*(?=\r?\n|$)/;
 const blank = (text) => text.replace(/[^\n]/g, ' ');
 
-// Finds MDX comments in a copy with code blanked out, so a `{/*` shown in code opens none.
-// Blanking keeps every offset, so the ranges found in the copy apply to the source.
-const stripMdxComments = (source) => {
-    const masked = source.replace(BACKTICK_CODE, blank);
-    let stripped = source;
-    for (const { index, 0: comment } of masked.matchAll(MDX_COMMENT)) {
-        stripped = stripped.slice(0, index) + blank(comment) + stripped.slice(index + comment.length);
-    }
-    return stripped;
-};
-
-// Code and html tokens hold fenced `# comment` lines and <!-- --> comments, so they are skipped.
-const collectHeadings = (tokens, found) => {
-    for (const token of tokens) {
-        if (token.type === 'heading') found.push(token.text.trim());
-        else if (token.type === 'list') for (const item of token.items) collectHeadings(item.tokens, found);
-        else if (token.type !== 'code' && token.type !== 'html' && token.tokens) collectHeadings(token.tokens, found);
-    }
+const textOf = (node) => node.value ?? (node.children ?? []).map(textOf).join('');
+const collectNodes = (node, found) => {
+    if (node.type === 'heading') found.push(textOf(node).trim());
+    for (const child of node.children ?? []) collectNodes(child, found);
     return found;
 };
 
-// README.md is read as GitHub renders it. MDX has no HTML blocks: a JSX line ends at its line
-// ending, so the line after it can be a heading, and only MDX knows {/* */} comments.
-export const headingsOf = (markdown, { mdx = false } = {}) => {
+// Runs Storybook's MDX compiler, which parses with remark, and a remark plugin that reads the
+// headings it parsed. As `md` it reads plain CommonMark, as GitHub does; as `mdx`, MDX.
+const parseHeadings = (source, format) =>
+    new Promise((settle, fail) => {
+        let found;
+        const readHeadings = () => (tree) => {
+            found = collectNodes(tree, []);
+        };
+        const done = (error) => {
+            if (error) fail(error);
+            else if (!found) fail(new CheckError("@storybook/addon-docs/mdx-loader ran without the heading reader; its options may have changed"));
+            else settle(found);
+        };
+        mdxLoader.call(
+            {
+                async: () => done,
+                getOptions: () => ({ mdxCompileOptions: { format, remarkPlugins: [readHeadings] } }),
+                resourcePath: 'docs.mdx',
+            },
+            source,
+        );
+    });
+
+// README.md is read as GitHub renders it, skipping front matter, which GitHub shows as a table.
+// An .mdx file is read by the compiler Storybook renders it with, so a page's headings match.
+export const headingsOf = async (markdown, { mdx = false } = {}) => {
     requireModules();
-    const source = markdown.replace(FRONT_MATTER, blank);
-    if (!mdx) return collectHeadings(Lexer.lex(source), []);
-    const tokenizer = new Tokenizer();
-    tokenizer.html = () => undefined;
-    return collectHeadings(Lexer.lex(stripMdxComments(source), { ...markedDefaults, tokenizer }), []);
+    return mdx ? parseHeadings(markdown, 'mdx') : parseHeadings(markdown.replace(FRONT_MATTER, blank), 'md');
+};
+
+// The MDX compiler reports a syntax error as a vfile message.
+const isMdxError = (error) => typeof error?.reason === 'string' && 'ruleId' in error;
+
+const parseDocs = async (snap) => {
+    const docs = new Map();
+    const invalid = new Set();
+    for (const file of [...snap.files].filter((path) => SECTION_PATH.test(path))) {
+        try {
+            docs.set(file, await headingsOf(snap.read(file), { mdx: file.endsWith('.mdx') }));
+        } catch (error) {
+            if (!isMdxError(error)) throw error;
+            invalid.add(file);
+        }
+    }
+    return { docs, invalid };
 };
 
 // Compared by text alone, so a heading moved between files names nothing new.
-const headingsIn = (snap) =>
-    [...snap.files]
-        .filter((path) => SECTION_PATH.test(path))
-        .flatMap((file) => headingsOf(snap.read(file), { mdx: file.endsWith('.mdx') }).map((text) => ({ key: text, file, label: `"${text}" in ${file}` })));
+const headingItems = ({ docs }, skip) =>
+    [...docs]
+        .filter(([file]) => !skip.has(file))
+        .flatMap(([file, headings]) => headings.map((text) => ({ key: text, file, label: `"${text}" in ${file}` })));
 
-export const detectSections = ({ base, head }) =>
-    grew({ kind: 'section', subject: 'Docs have', noun: 'heading', before: headingsIn(base), after: headingsIn(head) });
+// Storybook's build reports a broken .mdx file itself, so one invalid at head is left out of both
+// sides, the way an invalid workflow is.
+export const detectSections = async ({ base, head, warn = console.log }) => {
+    const baseParsed = await parseDocs(base);
+    const headParsed = await parseDocs(head);
+    for (const file of headParsed.invalid) {
+        warn(`::warning file=${escapeProperty(file)}::${escapeData(`${file} is not valid MDX, so the Claude docs check skips it`)}`);
+    }
+    return grew({
+        kind: 'section',
+        subject: 'Docs have',
+        noun: 'heading',
+        before: headingItems(baseParsed, headParsed.invalid),
+        after: headingItems(headParsed, headParsed.invalid),
+    });
+};
 
 export const runsOnPullRequest = (on) => {
     if (typeof on === 'string') return PR_TRIGGERS.includes(on);
@@ -178,7 +210,7 @@ const escapeData = (text) => text.replace(/%/g, '%25').replace(/\r/g, '%0D').rep
 const escapeProperty = (text) => escapeData(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
 
 // Returns the exit code: 0 passes, 1 means docs are missing. Failures to run throw CheckError.
-export const main = ({ args = [], env = {}, cwd = process.cwd(), log = console.log, error = console.error } = {}) => {
+export const main = async ({ args = [], env = {}, cwd = process.cwd(), log = console.log, error = console.error } = {}) => {
     if (args.length > 2) throw new CheckError('usage: node scripts/check-claude-docs.mjs [base] [head]');
     const [baseRef = 'origin/main', headRef = 'HEAD'] = args;
 
@@ -191,7 +223,8 @@ export const main = ({ args = [], env = {}, cwd = process.cwd(), log = console.l
     }
     const head = git(cwd, 'rev-parse', '--verify', `${headRef}^{commit}`).trim();
     const context = { base: snapshot(cwd, mergeBase), head: snapshot(cwd, head), warn: log };
-    const findings = detectors.flatMap((detect) => detect(context));
+    const findings = [];
+    for (const detect of detectors) findings.push(...(await detect(context)));
 
     if (findings.length === 0) {
         log('✓ No new page, section or check, so CLAUDE.md and the verify skill need no update');
@@ -230,7 +263,7 @@ export const main = ({ args = [], env = {}, cwd = process.cwd(), log = console.l
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {
         requireModules();
-        process.exit(main({ args: process.argv.slice(2), env: process.env }));
+        process.exit(await main({ args: process.argv.slice(2), env: process.env }));
     } catch (error) {
         console.error(error instanceof CheckError ? error.message : (error?.stack ?? String(error)));
         process.exit(2);

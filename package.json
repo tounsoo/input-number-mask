@@ -72,7 +72,6 @@
     "globals": "^16.5.0",
     "js-yaml": "^4.3.2",
     "jsdom": "^28.1.0",
-    "marked": "^9.1.6",
     "playwright": "^1.65.0",
     "publint": "^0.3.25",
     "react": "^19.3.1",
