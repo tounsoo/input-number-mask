@@ -1,8 +1,7 @@
 // Enforces the repo rule that a PR adding a page, a section or a check also updates
 // CLAUDE.md and the verify skill. Usage: node scripts/check-claude-docs.mjs [base] [head]
 // The workflow sets SKIP_CLAUDE_DOCS=true when the PR carries the skip label.
-// Every detector compares totals at the merge base and at head, so moving or renaming
-// something never fires; only a net increase does.
+// Every detector compares totals at the merge base and at head, so only a net increase fires.
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
