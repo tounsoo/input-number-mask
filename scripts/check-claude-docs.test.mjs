@@ -38,8 +38,6 @@ describe('headingsOf', () => {
         ['closing fence with text does not close', '```\n``` x\n# no\n```\n# Real', ['Real']],
         ['single-line HTML comment', '<!-- # no -->\n# Real', ['Real']],
         ['multi-line HTML comment', '<!--\n# no\n-->\n# Real', ['Real']],
-        ['single-line MDX comment', '{/* # no */}\n# Real', ['Real']],
-        ['multi-line MDX comment', '{/*\n# no\n*/}\n# Real', ['Real']],
         ['fence inside a comment is ignored', '<!--\n```\n-->\n# Real', ['Real']],
         ['inline triple backticks are not a fence', '```js``` text\n# Real', ['Real']],
         ['backtick opener with a backtick in its info string', '```a`b\n# Real', ['Real']],
@@ -58,9 +56,58 @@ describe('headingsOf', () => {
         ['<!-- inside an inline code span', 'Type `<!--` to open one.\n## A', ['A']],
         ['setext heading', 'Title\n=====\n\nSub\n---', ['Title', 'Sub']],
         ['heading inside a list item', '- item\n\n  ## Nested', ['Nested']],
-        ['MDX comment mid-line', 'text {/* # no */} more\n# Real', ['Real']],
     ])('%s', (_name, markdown, expected) => {
         expect(headingsOf(markdown)).toEqual(expected);
+    });
+});
+
+describe('headingsOf front matter', () => {
+    it.each([
+        ['README', false],
+        ['MDX', true],
+    ])('%s skips leading front matter', (_name, mdx) => {
+        expect(headingsOf('---\ntitle: Button\nsidebar: true\n---\n\n## Install\n', { mdx })).toEqual(['Install']);
+    });
+    it('a later --- block is not front matter', () => {
+        expect(headingsOf('# A\n\n---\ntitle: x\n---\n')).toEqual(['A', 'title: x']);
+    });
+});
+
+describe('headingsOf in MDX', () => {
+    it.each([
+        ['single-line MDX comment', '{/* # no */}\n# Real', ['Real']],
+        ['multi-line MDX comment', '{/*\n# no\n*/}\n# Real', ['Real']],
+        ['MDX comment mid-line', 'text {/* # no */} more\n# Real', ['Real']],
+        ['heading right after a JSX line', '<Meta title="Getting Started" />\n# Title\n\n## A', ['Title', 'A']],
+        ['heading right after a self-closing component', '#### Props\n<ArgTypes of={P} />\n#### Options', ['Props', 'Options']],
+        ['headings around a JSX block', '<Canvas>\n\n## Inside\n\n</Canvas>\n## After', ['Inside', 'After']],
+        ['{/* in inline code opens no comment', 'Write `{/*` to open one.\n\n## A\n\nand `*/}` to close.\n## B', ['A', 'B']],
+        ['{/* in a fence opens no comment', '```\n{/*\n```\n\n## A\n\n{/* todo */}\n\n## B', ['A', 'B']],
+        ['a fenced # line still is not a heading', '```bash\n# comment\n```\n# Real', ['Real']],
+    ])('%s', (_name, markdown, expected) => {
+        expect(headingsOf(markdown, { mdx: true })).toEqual(expected);
+    });
+
+    it('README keeps GitHub rules: a JSX-looking line starts an HTML block', () => {
+        expect(headingsOf('<p align="center">\n</p>\n## Hidden\n\n## Shown')).toEqual(['Shown']);
+    });
+
+    it('README does not strip {/* */}', () => {
+        expect(headingsOf('Write `{/*` here.\n\n## A\n\n`*/}`\n## B')).toEqual(['A', 'B']);
+    });
+});
+
+describe('detectSections in MDX', () => {
+    it('adding blank lines after JSX does not fire', () => {
+        const base = '<Meta title="A" />\n# A\n\nText\n\n#### Props\n<ArgTypes of={P} />\n#### Options\n<ArgTypes of={O} />\n';
+        const head = '<Meta title="A" />\n\n# A\n\nText\n\n#### Props\n\n<ArgTypes of={P} />\n\n#### Options\n\n<ArgTypes of={O} />\n';
+        expect(run(detectSections, { 'src/a.mdx': base }, { 'src/a.mdx': head })).toEqual([]);
+    });
+
+    it('a heading added right under JSX fires', () => {
+        const base = '#### Props\n<ArgTypes of={P} />\n';
+        const head = `${base}#### Return Values\n<ArgTypes of={R} />\n`;
+        expect(run(detectSections, { 'src/a.mdx': base }, { 'src/a.mdx': head })).toHaveLength(1);
     });
 });
 

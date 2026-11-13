@@ -10,10 +10,12 @@ import { fileURLToPath } from 'node:url';
 let load;
 let YAMLException;
 let Lexer;
+let Tokenizer;
+let markedDefaults;
 let loadError;
 try {
     ({ load, YAMLException } = await import('js-yaml'));
-    ({ Lexer } = await import('marked'));
+    ({ Lexer, Tokenizer, marked: { defaults: markedDefaults } } = await import('marked'));
 } catch (error) {
     loadError = error;
 }
@@ -73,8 +75,22 @@ const pagesOf = (snap) =>
 export const detectPages = ({ base, head }) =>
     grew({ kind: 'page', subject: 'Storybook has', noun: 'page', before: pagesOf(base), after: pagesOf(head) });
 
-// marked does not know MDX comments. Newlines inside one are kept so line structure is unchanged.
+const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?=\r?\n|$)/;
 const MDX_COMMENT = /\{\/\*[\s\S]*?\*\/\}/g;
+// Backtick runs paired by length cover both code spans and backtick fences.
+const BACKTICK_CODE = /(`+)[\s\S]*?\1/g;
+const blank = (text) => text.replace(/[^\n]/g, ' ');
+
+// Finds MDX comments in a copy with code blanked out, so a `{/*` shown in code opens none.
+// Blanking keeps every offset, so the ranges found in the copy apply to the source.
+const stripMdxComments = (source) => {
+    const masked = source.replace(BACKTICK_CODE, blank);
+    let stripped = source;
+    for (const { index, 0: comment } of masked.matchAll(MDX_COMMENT)) {
+        stripped = stripped.slice(0, index) + blank(comment) + stripped.slice(index + comment.length);
+    }
+    return stripped;
+};
 
 // Code and html tokens hold fenced `# comment` lines and <!-- --> comments, so they are skipped.
 const collectHeadings = (tokens, found) => {
@@ -86,16 +102,22 @@ const collectHeadings = (tokens, found) => {
     return found;
 };
 
-export const headingsOf = (markdown) => {
+// README.md is read as GitHub renders it. MDX has no HTML blocks: a JSX line ends at its line
+// ending, so the line after it can be a heading, and only MDX knows {/* */} comments.
+export const headingsOf = (markdown, { mdx = false } = {}) => {
     requireModules();
-    return collectHeadings(Lexer.lex(markdown.replace(MDX_COMMENT, (comment) => comment.replace(/[^\n]/g, ''))), []);
+    const source = markdown.replace(FRONT_MATTER, blank);
+    if (!mdx) return collectHeadings(Lexer.lex(source), []);
+    const tokenizer = new Tokenizer();
+    tokenizer.html = () => undefined;
+    return collectHeadings(Lexer.lex(stripMdxComments(source), { ...markedDefaults, tokenizer }), []);
 };
 
 // Compared by text alone, so a heading moved between files names nothing new.
 const headingsIn = (snap) =>
     [...snap.files]
         .filter((path) => SECTION_PATH.test(path))
-        .flatMap((file) => headingsOf(snap.read(file)).map((text) => ({ key: text, file, label: `"${text}" in ${file}` })));
+        .flatMap((file) => headingsOf(snap.read(file), { mdx: file.endsWith('.mdx') }).map((text) => ({ key: text, file, label: `"${text}" in ${file}` })));
 
 export const detectSections = ({ base, head }) =>
     grew({ kind: 'section', subject: 'Docs have', noun: 'heading', before: headingsIn(base), after: headingsIn(head) });
