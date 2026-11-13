@@ -24,7 +24,7 @@ These are the `package.json` scripts CI relies on, in the order the CI `Test` jo
 | Command | What it does |
 | --- | --- |
 | `pnpm lint` | ESLint on `**/*.{ts,tsx}`. Ignores `dist`, `coverage`, `storybook-static` and `.claude`, which holds the vendored pstack scripts. |
-| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}`). |
+| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.mjs`). |
 | `pnpm build:lib` | Type-checks the library (`tsconfig.lib.json`), builds `dist/index.mjs` and `dist/index.cjs` with Vite, then bundles the types into `dist/index.d.ts` and `dist/index.d.cts` with rollup-plugin-dts. |
 | `pnpm check:package` | `publint --strict`, `attw --pack .` and `scripts/check-exports.mjs`, which checks that the ESM, CJS and type entries export exactly the public names. Needs `build:lib` first. |
 | `pnpm build-storybook` | Static Storybook in `storybook-static/`. CI builds it on pull requests; `build-storybook.yml` deploys it to GitHub Pages from `main`. |
@@ -34,7 +34,7 @@ Others:
 - `pnpm exec tsc -b` type-checks the app and node configs (`tsconfig.app.json`, `tsconfig.node.json`), stories and tests included. CI doesn't run it on its own.
 - `pnpm test` runs Vitest with `vitest.config.ts` in headless Chromium through `@storybook/addon-vitest`, so the stories' play functions run as tests. It needs Playwright's Chromium (`pnpm exec playwright install chromium`). CI doesn't run it.
 - `pnpm test:coverage` writes a coverage report to `coverage/`, which is gitignored.
-- `node scripts/check-claude-docs.mjs` runs the `Claude docs` check against `origin/main` (fetch it first). CI runs it on every pull request in `.github/workflows/claude-docs.yml`. Conventions says what it checks.
+- `node scripts/check-claude-docs.mjs` runs the `Claude docs` check on the committed branch against `origin/main` (fetch it first). CI runs it on every pull request in `.github/workflows/claude-docs.yml`, and again when a label changes. Conventions says what it checks. It isn't a required status check: the weekly `pstack update` pull request is opened with the workflow token, so this workflow never runs there.
 - `pnpm storybook` starts Storybook on port 6006.
 - `pnpm build`, `pnpm dev` and `pnpm preview` are left over from the Vite app template. There is no `index.html`, so `pnpm build` fails after `tsc -b`. Use `build:lib` for the package and Storybook for a running page.
 
@@ -50,10 +50,10 @@ Prove every change with [`.claude/skills/verify/SKILL.md`](.claude/skills/verify
 - Agents don't merge, delete branches, force-push or rebase. Each waits for Ben's yes.
 - Push only once lint, tests and the build are green locally. Open pull requests as drafts; mark one ready once its CI is green.
 - Change `CLAUDE.md` and anything in `.claude/` only with Ben's yes.
-- A pull request that adds a page, a section or a check also changes `CLAUDE.md` and the verify skill (`.claude/skills/verify/`) in the same pull request, before the merge ask. The `Claude docs` workflow fails it otherwise.
-  - A page is a new Storybook file: `src/**/*.mdx` or `src/**/*.stories.{js,jsx,mjs,ts,tsx}`, the globs in `.storybook/main.ts`. A renamed file isn't new.
-  - A section is a new Markdown heading in `README.md` or in an `.mdx` file that already exists. Lines in code blocks don't count. The check compares the number of headings, so a renamed heading doesn't count.
-  - A check is a new job, or a job with more steps, in a workflow that runs on `pull_request` or `pull_request_target`. A new test file isn't one: `pnpm test:ci` already runs it.
-  - For a page or a section, update the feature map in `.claude/skills/verify/features/`. For a check, update `CLAUDE.md`'s commands and step 1 of the verify skill.
-  - For a true false positive, a maintainer adds the `skip-claude-docs-check` label. That re-runs the check, which passes with a warning.
+- A pull request that adds a page, a section or a check also changes `CLAUDE.md` and the verify skill (`.claude/skills/verify/`) in the same pull request. The `Claude docs` workflow (`scripts/check-claude-docs.mjs`) fails it otherwise. Ben's yes to those `.claude/` changes comes with the merge ask. The check compares totals at the merge base and at the head, so a rename or a move never counts. Only a net increase does.
+  - A page is a Storybook file matching the `stories` globs in `.storybook/main.ts`: `src/**/*.mdx` and `src/**/*.stories.{js,jsx,mjs,ts,tsx}`. It counts when there are more of them.
+  - A section is a Markdown heading in `README.md` or a `src/**/*.mdx` file. Lines in code blocks and in HTML or MDX comments don't count. It counts when there are more headings in total.
+  - A check is a job or a step in a workflow that runs on `pull_request` or `pull_request_target`. It counts when those workflows have more jobs or more steps in total. A new test file isn't a check: `pnpm test:ci` already runs it.
+  - The check only asks that both changed. Make the change useful: for a page or a section, update the feature map in `.claude/skills/verify/features/`. For a check, update the commands here and step 1 of the verify skill.
+  - The `skip-claude-docs-check` label passes the check with a warning, for a true false positive. Only Ben adds or removes it. Agents never do; they name the false positive in the merge ask instead. The label skips every run while it stays on the pull request, so remove it once the false positive is past.
 - Where these docs and the code disagree, follow the code and say so in the pull request.

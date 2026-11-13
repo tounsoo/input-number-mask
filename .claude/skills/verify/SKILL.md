@@ -50,7 +50,7 @@ node scripts/check-claude-docs.mjs
 
 `tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips. CI builds Storybook only on pull requests.
 
-`check-claude-docs.mjs` is the `Claude docs` workflow, run locally against `origin/main`. It exits 1 when the branch adds a page, a section or a check and doesn't also change `CLAUDE.md` and this skill. The Conventions section of `CLAUDE.md` defines all three. Fix a failure by updating both: `features/` for a new page or section, this step's command list for a new check.
+`check-claude-docs.mjs` is the `Claude docs` workflow, run on the committed branch against `origin/main`. Exit 0 passes. Exit 1 means the branch adds a page, a section or a check without changing both `CLAUDE.md` and this skill; the Conventions section of `CLAUDE.md` defines all three and says what to update. Exit 2 means it couldn't run, usually a missing `origin/main` or a shallow clone, so the step is `BLOCKED` until `git fetch origin main` (with more history if needed) lets it run.
 
 ### 2. Consumer drive (any change under `src/`, the build config or `package.json`)
 
