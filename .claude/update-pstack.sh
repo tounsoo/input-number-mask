@@ -12,7 +12,7 @@ set -eu
 
 repo=https://github.com/michael-denyer/pstack-claude
 # The commit the checked-in copy came from. An update run rewrites this line.
-pin=49b68501b075ec1eb2755dd0d22fbf2492d67e97
+pin=a12b04786023e762f12f5de7bb5fafb8c23f8c36
 # AGENTS.md, CLAUDE.md and the session's GitHub tools already drive PRs,
 # CI and conflicts. .claude/pstack-models.md is the model sheet
 # setup-pstack would write.
