@@ -1,16 +1,16 @@
 date	class	ref	caught_by	note
-2026-11-07	shadow-root-focus	#36	review	The focus check used document.activeElement, so a caret inside a shadow root was not restored.
-2026-11-07	ime-empty-mask	#36	review	compositionstart filled a field shown as empty with the empty mask.
+2026-11-06	shadow-root-focus	#36	review	The focus check used document.activeElement, so a caret inside a shadow root was not restored.
+2026-11-06	ime-empty-mask	#36	review	compositionstart filled a field shown as empty with the empty mask.
 2026-11-07	literal-digit-paste	#39	review	Pasting into a template copied the template's own digits into the slots.
-2026-11-12	pstack-partial-update	#40	review	An update that failed partway left the vendored skills deleted.
-2026-11-12	pstack-commit-count	#40	review	The update check counted commits rather than the net file change.
-2026-11-12	pstack-fable-rewrite	#40	review	The Fable rewrite missed model lines in agent frontmatter and edited repo-owned skills.
-2026-11-12	pstack-routing-prefix	#40	review	The routing hook named pstack: skills that are project skills in this repo.
-2026-11-12	pstack-hidden-failure	#40	review	The copy step's pipe hid a failing script.
-2026-11-12	pstack-update-base	#40	review	A manual run from a feature branch built the update on that branch.
-2026-11-12	pstack-update-noop	#40	review	A move on main re-pushed an unchanged pstack copy.
-2026-11-12	pstack-pr-subject	#40	review	An upstream commit subject could break the update pull request body.
-2026-11-12	pstack-update-ci	#40	review	The update pull request was opened without a push, so CI did not run.
-2026-11-12	pstack-fork-pr	#40	review	A fork pull request on the branch pstack/update would have been taken for the bot's.
-2026-11-12	pstack-stale-update	#40	review	The update pull request stayed open after upstream reverted the change.
-2026-11-12	pstack-gitignore	#40	review	.gitignore could drop a vendored file from the update commit.
+2026-11-11	pstack-partial-update	#40	review	An update that failed partway left the vendored skills deleted.
+2026-11-11	pstack-commit-count	#40	review	The update check counted commits rather than the net file change.
+2026-11-11	pstack-fable-rewrite	#40	review	The Fable rewrite missed model lines in agent frontmatter and edited repo-owned skills.
+2026-11-11	pstack-routing-prefix	#40	review	The routing hook named pstack: skills that are project skills in this repo.
+2026-11-11	pstack-hidden-failure	#40	review	The copy step's pipe hid a failing script.
+2026-11-11	pstack-update-base	#40	review	A manual run from a feature branch built the update on that branch.
+2026-11-11	pstack-update-noop	#40	review	A move on main re-pushed an unchanged pstack copy.
+2026-11-11	pstack-pr-subject	#40	review	An upstream commit subject could break the update pull request body.
+2026-11-11	pstack-update-ci	#40	review	The update pull request was opened without a push, so CI did not run.
+2026-11-11	pstack-fork-pr	#40	review	A fork pull request on the branch pstack/update would have been taken for the bot's.
+2026-11-11	pstack-stale-update	#40	review	The update pull request stayed open after upstream reverted the change.
+2026-11-11	pstack-gitignore	#40	review	.gitignore could drop a vendored file from the update commit.

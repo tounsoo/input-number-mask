@@ -21,7 +21,7 @@ These are the `package.json` scripts the CI `Test` job runs, in that job's order
 | Command | What it does |
 | --- | --- |
 | `pnpm lint` | ESLint on `**/*.{ts,tsx}`. Ignores `dist`, `coverage`, `storybook-static` and `.claude`, which holds the vendored pstack scripts. |
-| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.mjs`). |
+| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.{ts,mjs}`). |
 | `pnpm build:lib` | Type-checks the library (`tsconfig.lib.json`), builds `dist/index.mjs` and `dist/index.cjs` with Vite, then bundles the types into `dist/index.d.ts` and `dist/index.d.cts` with rollup-plugin-dts. |
 | `pnpm check:package` | `publint --strict`, `attw --pack .` and `scripts/check-exports.mjs`, which checks that the ESM, CJS and type entries export exactly the public names. Needs `build:lib` first. |
 | `pnpm build-storybook` | Static Storybook in `storybook-static/`. The `Test` job builds it on pull requests. `build-storybook.yml` deploys it to GitHub Pages from `main`. |
@@ -61,7 +61,7 @@ Tier: T0
 
 | ID | Rule | Enforcer | Evidence | Status |
 | --- | --- | --- | --- | --- |
-| lint | ESLint | `pnpm lint` | #26 | seeded |
+| lint | ESLint | `pnpm lint` | 90adf6c7a8a0475716cb545775d7b263b6ab6328 | seeded |
 | typecheck | Typecheck | `pnpm typecheck` | #34 | seeded |
 | test-ci | Unit tests | `pnpm test:ci` | 2714c428c7101235d383b595f591baae6bd43ae1 | seeded |
 | browser-test | Browser story tests | `pnpm test` | 90adf6c7a8a0475716cb545775d7b263b6ab6328 | seeded |
