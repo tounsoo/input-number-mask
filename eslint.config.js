@@ -20,4 +20,12 @@ export default defineConfig([globalIgnores(['dist', 'coverage', 'storybook-stati
     ecmaVersion: 2020,
     globals: globals.browser,
   },
-}, ...storybook.configs["flat/recommended"]])
+}, ...storybook.configs["flat/recommended"], {
+  files: ['scripts/**/*.ts'],
+  languageOptions: {
+    globals: globals.node,
+  },
+  rules: {
+    'react-refresh/only-export-components': 'off',
+  },
+}])

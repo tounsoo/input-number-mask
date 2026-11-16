@@ -38,8 +38,9 @@ The commands of the CI `Test` job in its order, with `tsc -b` and a second `pnpm
 
 ```sh
 pnpm lint
-pnpm exec tsc -b
+pnpm typecheck
 pnpm test:ci
+pnpm check:self
 pnpm build:lib
 pnpm check:package
 pnpm build-storybook
@@ -48,9 +49,11 @@ git fetch origin main
 node scripts/check-claude-docs.mjs
 ```
 
-`tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips. CI builds Storybook only on pull requests.
+`pnpm typecheck` runs `tsc -b`. It isn't a CI step, but it type-checks the stories and tests that `build:lib` skips. CI builds Storybook only on pull requests. The `rule-checker` job runs `pnpm check:self`.
 
 `check-claude-docs.mjs` is the `Claude docs` workflow, run on the committed branch against `origin/main`. Exit 0 passes. Exit 1 means the branch adds a page, a section or a check without changing both `CLAUDE.md` and this skill. `AGENTS.md` defines all three and says what to update. The check still requires `CLAUDE.md` itself to change, because `CLAUDE.md` imports `AGENTS.md`. Exit 2 means it couldn't run, usually a missing `origin/main`, a shallow clone or an install that hasn't run, so the step is `BLOCKED` until `git fetch origin main` (with more history if needed) or `pnpm install --frozen-lockfile` lets it run.
+
+`pnpm check:self` reads the rule table, `.agents/weeds.tsv` and `.agents/suppression-baseline.json`. The formats are home's `standards/self-correcting.md`. The Vitest suite in `scripts/self-correcting.test.ts` proves a malformed rule table, a bad weeds row, a weeds row dated after today in Pacific time, a suppression over the baseline, an expired suppression, an enforcer that does not resolve, and a repeat at T1 each fail. It reads this repository, so the cases build their own fixtures.
 
 ### 2. Consumer drive (any change under `src/`, the build config or `package.json`)
 

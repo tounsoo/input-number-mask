@@ -21,14 +21,15 @@ These are the `package.json` scripts the CI `Test` job runs, in that job's order
 | Command | What it does |
 | --- | --- |
 | `pnpm lint` | ESLint on `**/*.{ts,tsx}`. Ignores `dist`, `coverage`, `storybook-static` and `.claude`, which holds the vendored pstack scripts. |
-| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.mjs`). |
+| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.{ts,mjs}`). |
 | `pnpm build:lib` | Type-checks the library (`tsconfig.lib.json`), builds `dist/index.mjs` and `dist/index.cjs` with Vite, then bundles the types into `dist/index.d.ts` and `dist/index.d.cts` with rollup-plugin-dts. |
 | `pnpm check:package` | `publint --strict`, `attw --pack .` and `scripts/check-exports.mjs`, which checks that the ESM, CJS and type entries export exactly the public names. Needs `build:lib` first. |
 | `pnpm build-storybook` | Static Storybook in `storybook-static/`. The `Test` job builds it on pull requests. `build-storybook.yml` deploys it to GitHub Pages from `main`. |
 
 Others:
 
-- `pnpm exec tsc -b` type-checks the app and node configs (`tsconfig.app.json`, `tsconfig.node.json`), stories and tests included. CI does not run it on its own.
+- `pnpm typecheck` runs `tsc -b`. It type-checks the app and node configs (`tsconfig.app.json`, `tsconfig.node.json`), stories and tests included. CI does not run it on its own.
+- `pnpm check:self` checks the rule table, `.agents/weeds.tsv` and `.agents/suppression-baseline.json`. The formats are home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md). The `rule-checker` job runs it.
 - `pnpm test` runs Vitest with `vitest.config.ts` in headless Chromium through `@storybook/addon-vitest`, so the stories' play functions run as tests. It needs Playwright's Chromium (`pnpm exec playwright install chromium`). CI does not run it.
 - `pnpm test:coverage` writes a coverage report to `coverage/`, which is gitignored.
 - `node scripts/check-claude-docs.mjs` runs the `Claude docs` check on the committed branch against `origin/main`. Fetch `origin/main` first. CI runs it on every pull request in `.github/workflows/claude-docs.yml`, and again when a label changes. Conventions says what it checks. It is not a required status check. The weekly `pstack update` pull request is opened with the workflow token, so this workflow does not run there.
@@ -44,13 +45,36 @@ Prove every change with [`.claude/skills/verify/SKILL.md`](.claude/skills/verify
 These fill the **Repo lines** in home's `playbooks/review-before-pr.md` and `playbooks/waiting-on-ci.md`.
 
 - Base branch: `main`.
-- Checks, in this order: `pnpm lint`, `pnpm exec tsc -b`, `pnpm test:ci`, `pnpm build:lib`, `pnpm check:package`, `pnpm build-storybook`, `pnpm lint` again, then `node scripts/check-claude-docs.mjs` after `git fetch origin main`. The CI `Test` job runs `pnpm lint`, `pnpm test:ci`, `pnpm build:lib`, `pnpm check:package`, and, on a pull request, `pnpm build-storybook`. It does not run `tsc -b` or the Claude docs script. Run the verify skill on the commit that ends the review round.
+- Checks, in this order: `pnpm lint`, `pnpm typecheck`, `pnpm test:ci`, `pnpm check:self`, `pnpm build:lib`, `pnpm check:package`, `pnpm build-storybook`, `pnpm lint` again, then `node scripts/check-claude-docs.mjs` after `git fetch origin main`. The CI `Test` job runs `pnpm lint`, `pnpm test:ci`, `pnpm build:lib`, `pnpm check:package`, and, on a pull request, `pnpm build-storybook`. The `rule-checker` job runs `pnpm check:self`. Neither runs `pnpm typecheck` or the Claude docs script. Run the verify skill on the commit that ends the review round.
 - Dependents to pass as context: importers of a changed export from `src/index.ts` (`InputNumberMask`, `InputNumberMaskContentEditable`, `useInputNumberMask`, `useContentEditableMask`, and their exported prop and return types). Also `README.md`, the stories in `src/stories/` that describe the changed behavior, and the tests that cover it. This repo is a single package.
 - Push builds a preview: no. A pull request builds Storybook inside `Test` and does not publish it. GitHub Pages updates from `main` only, in `Build and Deploy Storybook`.
 - Drafts: allowed. Open a pull request as a draft. `Test` runs on a draft. Mark the draft ready once `Test` is green.
-- Required check name: `Test`. The ruleset `Standard Branch Protection` on the default branch requires that name. `CLAUDE.md and verify skill` is not in the ruleset, so it does not block merge. A failure there still needs a fix. The weekly `pstack update` pull request does not run that workflow.
+- Required check name: `Test`. The ruleset `Standard Branch Protection` on the default branch requires that name. `rule-checker` and `CLAUDE.md and verify skill` are not in the ruleset, so they do not block merge. A failure there still needs a fix. The weekly `pstack update` pull request does not run that workflow.
 - Regenerate after a merge of `origin/main`: nothing. `dist/` and `storybook-static/` are gitignored. The Release workflow on `main` opens the "chore: version packages" pull request from `.changeset/` and publishes when that pull request merges.
 - Pull request body: this repo has no `.github/pull_request_template.md`. Use the three sections in home's `standards/pull-requests.md`.
+
+The columns, the weeds log and the suppression baseline follow home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md). `pnpm check:self` checks them.
+
+## Rule table
+
+Tier: T0
+
+| ID | Rule | Enforcer | Evidence | Status |
+| --- | --- | --- | --- | --- |
+| lint | ESLint | `pnpm lint` | 90adf6c7a8a0475716cb545775d7b263b6ab6328 | seeded |
+| typecheck | Typecheck | `pnpm typecheck` | #34 | seeded |
+| test-ci | Unit tests | `pnpm test:ci` | 2714c428c7101235d383b595f591baae6bd43ae1 | seeded |
+| browser-test | Browser story tests | `pnpm test` | 90adf6c7a8a0475716cb545775d7b263b6ab6328 | seeded |
+| build-lib | Library build | `pnpm build:lib` | f71c702b0371a4686c15bc3e7082d3772e5322ea | seeded |
+| check-package | Package entries | `pnpm check:package` | #29 | seeded |
+| build-storybook | Storybook build | `pnpm build-storybook` | 90adf6c7a8a0475716cb545775d7b263b6ab6328 | seeded |
+| consumer-smoke | Packed package smoke | `.claude/skills/verify/consumer-smoke.mjs` | #34 | seeded |
+| claude-docs | Claude docs check | `scripts/check-claude-docs.mjs`, `.github/workflows/claude-docs.yml` | #41 | seeded |
+| ci-test | CI Test job | `.github/workflows/ci.yml` | df47da8dc472741fbbc70598ccf19898bf420209 | seeded |
+| storybook-pages | Storybook Pages workflow | `.github/workflows/build-storybook.yml` | be2d1bc1baf52a6186517ed4c3c073ff7ec4c0a7 | seeded |
+| release | Release workflow | `.github/workflows/release.yml` | 4339ba83111445c38bc2896473b122feceb3f21e | seeded |
+| pstack-update | Weekly pstack update | `.github/workflows/pstack-update.yml` | #40 | seeded |
+| self | Rule table, weeds log and suppressions | `pnpm check:self` | #43 | seeded |
 
 ## Conventions
 
@@ -74,7 +98,7 @@ Work here uses [pstack-claude](https://github.com/michael-denyer/pstack-claude),
 - The weekly `pstack update` workflow (`.github/workflows/pstack-update.yml`) runs `sh .claude/update-pstack.sh --check`. When upstream has changed the copied files, it copies the new commit in and opens one pull request from the `pstack/update` branch, or refreshes the one already open. It closes that pull request when main already matches upstream. That workflow force-pushes `pstack/update` because it rebuilds the branch from `main`. Agents do not. Review that diff like any other change before it merges.
 - To move the pin by hand, run `sh .claude/update-pstack.sh <commit>` locally and review the diff. Threads do not run it. The script leaves out `babysit`, `fix-ci`, `fix-merge-conflicts`, `get-pr-comments` and `setup-pstack`, rewrites any skill or agent default that names `fable` to `opus`, drops the `pstack:` prefix from the routing text, and lists the Fable mentions left for a reviewer to check. The `babysit` playbook inside `poteto-mode` stays. The skipped names are skill directories.
 - `.claude/pstack-models.md` is the model sheet. Where a pstack skill names the `pstack-models.md` sheet, read that file. A change to a role's model or effort goes there, with Ben's yes. The sheet names no Fable role. Fable runs only when a line there names it, or when Ben approves it in his own message in that run.
-- This repo has no `.agents/playbooks/`. Repo-specific procedure stays in this file. Home's review and CI playbooks are read from `~/repos/home`, or through the GitHub MCP tools when that clone fails. They are not copied.
+- This repo has no `.agents/playbooks/`. The weeds log is `.agents/weeds.tsv` and the suppression baseline is `.agents/suppression-baseline.json`. Appending a weeds row needs no yes. Repo-specific procedure stays in this file. Home's review and CI playbooks are read from `~/repos/home`, or through the GitHub MCP tools when that clone fails. They are not copied.
 
 ## Where the tools look
 
