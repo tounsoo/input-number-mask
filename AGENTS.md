@@ -74,7 +74,7 @@ Tier: T0
 | storybook-pages | Storybook Pages workflow | `.github/workflows/build-storybook.yml` | be2d1bc1baf52a6186517ed4c3c073ff7ec4c0a7 | seeded |
 | release | Release workflow | `.github/workflows/release.yml` | 4339ba83111445c38bc2896473b122feceb3f21e | seeded |
 | pstack-update | Weekly pstack update | `.github/workflows/pstack-update.yml` | #40 | seeded |
-| self | Rule table, weeds log and suppressions | `pnpm check:self` | 13014c8072e7cdf36556ef9c9bac46b320c230a4 | seeded |
+| self | Rule table, weeds log and suppressions | `pnpm check:self` | #43 | seeded |
 
 ## Conventions
 
