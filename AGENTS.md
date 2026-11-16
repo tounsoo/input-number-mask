@@ -1,6 +1,6 @@
 # Agent notes
 
-This file is for anyone changing `@tounsoo/input-number-mask`, including agents. It holds the rules that are specific to this repo. Shared rules live in Ben's home repo, [tounsoo/home](https://github.com/tounsoo/home) (private). Clone it to `~/repos/home` when that directory is missing (`https://github.com/tounsoo/home.git`) and read these before opening or driving a pull request:
+This file is for anyone changing `@tounsoo/input-number-mask`, including agents. It holds the rules that are specific to this repo. Shared rules live in Ben's home repo, [tounsoo/home](https://github.com/tounsoo/home) (private). Clone it to `~/repos/home` when that directory is missing (`https://github.com/tounsoo/home.git`). A Cursor cloud agent's git credential is scoped to its own repo and cannot clone home (`repository not found`). Read the same files through the GitHub MCP tools instead. Read them before opening or driving a pull request:
 
 - `AGENTS.md` there: the memory split, the learnings ladder, and how Cursor and Claude find pstack. A fact in this file overrides home.
 - `CLAUDE.md` there: the Claude-only lines. This repo's `CLAUDE.md` adapts them for the vendored pstack copy in `.claude/`.
@@ -74,7 +74,7 @@ Work here uses [pstack-claude](https://github.com/michael-denyer/pstack-claude),
 - The weekly `pstack update` workflow (`.github/workflows/pstack-update.yml`) runs `sh .claude/update-pstack.sh --check`. When upstream has changed the copied files, it copies the new commit in and opens one pull request from the `pstack/update` branch, or refreshes the one already open. It closes that pull request when main already matches upstream. That workflow force-pushes `pstack/update` because it rebuilds the branch from `main`. Agents do not. Review that diff like any other change before it merges.
 - To move the pin by hand, run `sh .claude/update-pstack.sh <commit>` locally and review the diff. Threads do not run it. The script leaves out `babysit`, `fix-ci`, `fix-merge-conflicts`, `get-pr-comments` and `setup-pstack`, rewrites any skill or agent default that names `fable` to `opus`, drops the `pstack:` prefix from the routing text, and lists the Fable mentions left for a reviewer to check. The `babysit` playbook inside `poteto-mode` stays. The skipped names are skill directories.
 - `.claude/pstack-models.md` is the model sheet. Where a pstack skill names the `pstack-models.md` sheet, read that file. A change to a role's model or effort goes there, with Ben's yes. The sheet names no Fable role. Fable runs only when a line there names it, or when Ben approves it in his own message in that run.
-- This repo has no `.agents/playbooks/`. Repo-specific procedure stays in this file. Home's review and CI playbooks are read from `~/repos/home`, not copied.
+- This repo has no `.agents/playbooks/`. Repo-specific procedure stays in this file. Home's review and CI playbooks are read from `~/repos/home`, or through the GitHub MCP tools when that clone fails. They are not copied.
 
 ## Where the tools look
 
