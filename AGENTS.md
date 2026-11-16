@@ -16,12 +16,13 @@ Use Node 24, the version CI runs. The repository does not pin it: there is no `.
 
 ## Commands
 
-Enforced checks are the [rule table](#rule-table). Operational notes:
+What each check guards is the [rule table](#rule-table). Operational notes:
 
 - `pnpm typecheck` runs `tsc -b`. It type-checks the app and node configs (`tsconfig.app.json`, `tsconfig.node.json`), stories and tests included. CI does not run it on its own.
 - `pnpm check:self` is the `self` row. The formats are home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md).
 - `pnpm test` runs Vitest with `vitest.config.ts` in headless Chromium through `@storybook/addon-vitest`, so the stories' play functions run as tests. It needs Playwright's Chromium (`pnpm exec playwright install chromium`). CI does not run it.
 - `pnpm test:coverage` writes a coverage report to `coverage/`, which is gitignored.
+- `pnpm check:package` needs `pnpm build:lib` first.
 - `node scripts/check-claude-docs.mjs` runs the `Claude docs` check on the committed branch against `origin/main`. Fetch `origin/main` first. CI runs it on every pull request in `.github/workflows/claude-docs.yml`, and again when a label changes. Conventions says what it checks. It is not a required status check. The weekly `pstack update` pull request is opened with the workflow token, so this workflow does not run there.
 - `pnpm storybook` starts Storybook on port 6006.
 - `pnpm build`, `pnpm dev` and `pnpm preview` are left over from the Vite app template. There is no `index.html`, so `pnpm build` fails after `tsc -b`. Use `build:lib` for the package and Storybook for a running page.
