@@ -13,8 +13,9 @@ set -eu
 repo=https://github.com/michael-denyer/pstack-claude
 # The commit the checked-in copy came from. An update run rewrites this line.
 pin=49b68501b075ec1eb2755dd0d22fbf2492d67e97
-# CLAUDE.md and the session's GitHub tools already drive PRs, CI and
-# conflicts; .claude/models.md is the model sheet setup-pstack would write.
+# AGENTS.md, CLAUDE.md and the session's GitHub tools already drive PRs,
+# CI and conflicts. .claude/pstack-models.md is the model sheet
+# setup-pstack would write.
 skip='babysit fix-ci fix-merge-conflicts get-pr-comments setup-pstack'
 # What gets copied, under plugins/pstack: every skill directory, *.md in each
 # agent directory, and the hook text. The copy and --check both read these.
@@ -132,9 +133,10 @@ for dir in $agent_dirs; do
     echo ".claude/agents/$(basename "$file")" >> "$out/manifest"
   done
 done
-# Fable never runs here, so no skill or agent default may name it, even when
-# a line in .claude/models.md is missing: a `fable` or `fable @level` value,
+# The model sheet names no Fable role. A deleted line must not bring a
+# `fable` default back from the copy, so a `fable` or `fable @level` value,
 # or a model: fable line in an agent's frontmatter, becomes opus.
+# .claude/pstack-models.md is that sheet.
 for file in "$out"/skills/*/SKILL.md "$out"/agents/*.md; do
   [ -e "$file" ] || continue
   sed -i.bak -e 's/`fable\( @[a-z]*\)\{0,1\}`/`opus\1`/g' -e 's/^model: *fable.*$/model: opus/' "$file"

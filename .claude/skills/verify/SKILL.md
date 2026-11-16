@@ -50,7 +50,7 @@ node scripts/check-claude-docs.mjs
 
 `tsc -b` isn't a CI step, but it type-checks the stories and tests that `build:lib` skips. CI builds Storybook only on pull requests.
 
-`check-claude-docs.mjs` is the `Claude docs` workflow, run on the committed branch against `origin/main`. Exit 0 passes. Exit 1 means the branch adds a page, a section or a check without changing both `CLAUDE.md` and this skill; the Conventions section of `CLAUDE.md` defines all three and says what to update. Exit 2 means it couldn't run, usually a missing `origin/main`, a shallow clone or an install that hasn't run, so the step is `BLOCKED` until `git fetch origin main` (with more history if needed) or `pnpm install --frozen-lockfile` lets it run.
+`check-claude-docs.mjs` is the `Claude docs` workflow, run on the committed branch against `origin/main`. Exit 0 passes. Exit 1 means the branch adds a page, a section or a check without changing both `CLAUDE.md` and this skill. `AGENTS.md` defines all three and says what to update. The check still requires `CLAUDE.md` itself to change, because `CLAUDE.md` imports `AGENTS.md`. Exit 2 means it couldn't run, usually a missing `origin/main`, a shallow clone or an install that hasn't run, so the step is `BLOCKED` until `git fetch origin main` (with more history if needed) or `pnpm install --frozen-lockfile` lets it run.
 
 ### 2. Consumer drive (any change under `src/`, the build config or `package.json`)
 
@@ -81,7 +81,7 @@ In a Claude Duet thread the Chromium download is blocked, so this step is `BLOCK
 | `src/stories/`, `.storybook/` | 1 and 3 |
 | `vite.config.lib.ts`, `rollup.config.dts.mjs`, `tsconfig*.json`, `package.json`, `scripts/` | 1 and 2 |
 | `.github/` | 1, then the pull request's CI run is the rest of the proof; link it |
-| `README.md`, `CLAUDE.md`, `.claude/`, `.changeset/` | 1. Review covers the rest. |
+| `README.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.changeset/` | 1. Review covers the rest. |
 
 ## Evidence
 

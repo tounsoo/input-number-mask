@@ -106,7 +106,7 @@ jobs:
           {
             echo "Updates the vendored pstack-claude copy in \`.claude/\` to [\`$short\`](https://github.com/michael-denyer/pstack-claude/commit/$LATEST), made by \`sh .claude/update-pstack.sh $LATEST\`."
             echo
-            echo "Review the diff before merging: threads use this copy as written. Keep any rule that conflicts with \`CLAUDE.md\` or \`.claude/thread-start.md\` out, and check the licenses in \`.claude/skills/poteto-mode/references/licenses/\` still cover the copy."
+            echo "Review the diff before merging: threads use this copy as written. Keep any rule that conflicts with \`AGENTS.md\`, \`CLAUDE.md\` or \`.claude/thread-start.md\` out, and check the licenses in \`.claude/skills/poteto-mode/references/licenses/\` still cover the copy."
             echo
             echo "This branch is rebuilt from main on each run that finds a new upstream commit, so a commit pushed to it is lost. Ask for a fix on main instead."
             echo
@@ -121,7 +121,7 @@ jobs:
               echo
               echo "### Fable mentions left after the rewrite"
               echo
-              echo "Fable never runs in this repository. Check each line below is not a model default."
+              echo "The model sheet names no Fable role, and update-pstack.sh rewrites a fable default to opus. Check each line below is not a model default."
               echo
               echo '~~~'
               grep '^check for a Fable default' "$RUNNER_TEMP/update.txt" | tr -d '~'
