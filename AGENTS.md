@@ -16,20 +16,10 @@ Use Node 24, the version CI runs. The repository does not pin it: there is no `.
 
 ## Commands
 
-These are the `package.json` scripts the CI `Test` job runs, in that job's order.
-
-| Command | What it does |
-| --- | --- |
-| `pnpm lint` | ESLint on `**/*.{ts,tsx}`. Ignores `dist`, `coverage`, `storybook-static` and `.claude`, which holds the vendored pstack scripts. |
-| `pnpm test:ci` | Unit tests in jsdom (`vitest.config.ci.ts`, `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.{ts,mjs}`). |
-| `pnpm build:lib` | Type-checks the library (`tsconfig.lib.json`), builds `dist/index.mjs` and `dist/index.cjs` with Vite, then bundles the types into `dist/index.d.ts` and `dist/index.d.cts` with rollup-plugin-dts. |
-| `pnpm check:package` | `publint --strict`, `attw --pack .` and `scripts/check-exports.mjs`, which checks that the ESM, CJS and type entries export exactly the public names. Needs `build:lib` first. |
-| `pnpm build-storybook` | Static Storybook in `storybook-static/`. The `Test` job builds it on pull requests. `build-storybook.yml` deploys it to GitHub Pages from `main`. |
-
-Others:
+Enforced checks are the [rule table](#rule-table). Operational notes:
 
 - `pnpm typecheck` runs `tsc -b`. It type-checks the app and node configs (`tsconfig.app.json`, `tsconfig.node.json`), stories and tests included. CI does not run it on its own.
-- `pnpm check:self` checks the rule table, `.agents/weeds.tsv` and `.agents/suppression-baseline.json`. The formats are home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md). The `rule-checker` job runs it.
+- `pnpm check:self` is the `self` row. The formats are home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md).
 - `pnpm test` runs Vitest with `vitest.config.ts` in headless Chromium through `@storybook/addon-vitest`, so the stories' play functions run as tests. It needs Playwright's Chromium (`pnpm exec playwright install chromium`). CI does not run it.
 - `pnpm test:coverage` writes a coverage report to `coverage/`, which is gitignored.
 - `node scripts/check-claude-docs.mjs` runs the `Claude docs` check on the committed branch against `origin/main`. Fetch `origin/main` first. CI runs it on every pull request in `.github/workflows/claude-docs.yml`, and again when a label changes. Conventions says what it checks. It is not a required status check. The weekly `pstack update` pull request is opened with the workflow token, so this workflow does not run there.
@@ -53,7 +43,7 @@ These fill the **Repo lines** in home's `playbooks/review-before-pr.md` and `pla
 - Regenerate after a merge of `origin/main`: nothing. `dist/` and `storybook-static/` are gitignored. The Release workflow on `main` opens the "chore: version packages" pull request from `.changeset/` and publishes when that pull request merges.
 - Pull request body: this repo has no `.github/pull_request_template.md`. Use the three sections in home's `standards/pull-requests.md`.
 
-The columns, the weeds log and the suppression baseline follow home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md). `pnpm check:self` checks them.
+The `self` row is `pnpm check:self`. Formats are home's [self-correcting standard](https://github.com/tounsoo/home/blob/main/standards/self-correcting.md).
 
 ## Rule table
 
