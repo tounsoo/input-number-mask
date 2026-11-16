@@ -53,7 +53,7 @@ node scripts/check-claude-docs.mjs
 
 `check-claude-docs.mjs` is the `Claude docs` workflow, run on the committed branch against `origin/main`. Exit 0 passes. Exit 1 means the branch adds a page, a section or a check without changing both `CLAUDE.md` and this skill. `AGENTS.md` defines all three and says what to update. The check still requires `CLAUDE.md` itself to change, because `CLAUDE.md` imports `AGENTS.md`. Exit 2 means it couldn't run, usually a missing `origin/main`, a shallow clone or an install that hasn't run, so the step is `BLOCKED` until `git fetch origin main` (with more history if needed) or `pnpm install --frozen-lockfile` lets it run.
 
-`pnpm check:self` reads the rule table, `.agents/weeds.tsv` and `.agents/suppression-baseline.json`. The formats are home's `standards/self-correcting.md`. The Vitest suite in `scripts/self-correcting.test.ts` proves a malformed rule table, a bad weeds row, a weeds row dated after today in Pacific time, a suppression over the baseline, an expired suppression, an enforcer that does not resolve, and a repeat at T1 each fail. It reads this repository, so the cases build their own fixtures.
+`pnpm check:self` is the `self` row in `AGENTS.md`. Formats are home's `standards/self-correcting.md`.
 
 ### 2. Consumer drive (any change under `src/`, the build config or `package.json`)
 
