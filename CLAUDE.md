@@ -9,3 +9,4 @@
 - GitHub work uses the GitHub MCP tools, not `gh` or the `watch-pr` script.
 - Fable runs only where `.claude/pstack-models.md` names it or where Ben approves it in his own message in that run.
 - Duet threads: nothing in `.claude/` loads by itself, and the `@` imports above do not expand. Read `AGENTS.md`, then `.claude/pstack-models.md`, then `.claude/thread-start.md`.
+- Run `pnpm check:self` with the other checks. Home's `standards/self-correcting.md` is the format; this file does not copy it.
