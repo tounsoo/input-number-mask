@@ -1,5 +1,7 @@
 // Enforces the repo rule that a PR adding a page, a section or a check also updates
-// CLAUDE.md and the verify skill. Usage: node scripts/check-claude-docs.mjs [base] [head]
+// CLAUDE.md and the verify skill. AGENTS.md defines those three. CLAUDE.md imports
+// AGENTS.md, and this check still requires CLAUDE.md itself to change.
+// Usage: node scripts/check-claude-docs.mjs [base] [head]
 // The workflow sets SKIP_CLAUDE_DOCS=true when the PR carries the skip label.
 // Every detector compares totals at the merge base and at head, so only a net increase fires.
 import { execFileSync } from 'node:child_process';
@@ -318,7 +320,7 @@ export const main = async ({ args = [], env = {}, cwd = process.cwd(), log = con
             '',
             `Update ${missing.join(
                 ' and '
-            )} in the same PR to describe the change. The Conventions section of CLAUDE.md defines what counts as a page, a section and a check.`,
+            )} in the same PR to describe the change. AGENTS.md defines what counts as a page, a section and a check. This check still requires a change to CLAUDE.md, which imports AGENTS.md.`,
             `If this is a false positive, a maintainer can add the ${SKIP_LABEL} label.`,
         ].join('\n')
     );
