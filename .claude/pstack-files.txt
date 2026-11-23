@@ -12,6 +12,7 @@
 .claude/skills/how
 .claude/skills/in-your-own-words
 .claude/skills/interrogate
+.claude/skills/ketchup-video
 .claude/skills/ketchup
 .claude/skills/maintain-formal-verification-skill
 .claude/skills/maintain-verification-skill
@@ -47,6 +48,7 @@
 .claude/skills/reflect
 .claude/skills/sharpen
 .claude/skills/show-me-your-work
+.claude/skills/statechart
 .claude/skills/swarm
 .claude/skills/tdd
 .claude/skills/teach
@@ -62,13 +64,3 @@
 .claude/agents/poteto-agent.md
 .claude/agents/thermo-nuclear-code-quality-review-subagent.md
 .claude/agents/thermo-nuclear-review-subagent.md
-.claude/agents/effort-high.md
-.claude/agents/effort-low.md
-.claude/agents/effort-max.md
-.claude/agents/effort-medium.md
-.claude/agents/effort-xhigh.md
-.claude/agents/poteto-agent-high.md
-.claude/agents/poteto-agent-low.md
-.claude/agents/poteto-agent-max.md
-.claude/agents/poteto-agent-medium.md
-.claude/agents/poteto-agent-xhigh.md
