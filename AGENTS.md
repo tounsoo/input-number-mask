@@ -8,7 +8,10 @@ This file is for anyone changing `@tounsoo/input-number-mask`, including agents.
 - A thread opens a ready pull request into `main`, gets CI green, and has a Gemini 4 Neon review subagent review it, at most 3 rounds.
 - Mike, Ben's engineering lead bot, merges only on Ben's word. Threads never merge or force-push, and do not edit `AGENTS.md`, `CLAUDE.md` or `.claude/` outside a pull request Ben approves.
 - Threads may use `gh` and the GitHub MCP tools.
-- Matt Pocock's skills (mattpocock-skills) are the workflow skills: `tdd`, `diagnosing-bugs`, `code-review`, `pr`, `grill-with-docs`, `to-spec` and `to-tickets`. They come from the user's install, not this repo. This repo keeps only its own `verify` skill in `.claude/skills/verify/`.
+- Matt Pocock's skills (mattpocock-skills) are the workflow skills. They come from the user's install, not this repo.
+  - A thread calls these, always with the prefix: `mattpocock-skills:tdd`, `mattpocock-skills:diagnosing-bugs`, `mattpocock-skills:code-review`, `mattpocock-skills:pr`, `mattpocock-skills:prototype`, `mattpocock-skills:codebase-design`, `mattpocock-skills:grilling`, `mattpocock-skills:domain-modeling` and `mattpocock-skills:research`. Write `mattpocock-skills:code-review` in full, because Claude Code has a built-in `code-review` of its own.
+  - Ben or Mike types these as `/mattpocock-skills:<name>`: `grill-with-docs`, `to-spec`, `to-tickets`, `wayfinder`, `retro`, `implement`, `implement-spec`, `triage`, `setup-matt-pocock-skills` and `grill-me`. They are user-typed only, so a thread does not invoke them and does not claim it did.
+  - Matt's set has no `verify` skill. This repo keeps its own in `.claude/skills/verify/`.
 
 ## Home repo
 

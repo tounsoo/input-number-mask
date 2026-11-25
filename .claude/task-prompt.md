@@ -29,7 +29,7 @@ or that each BLOCKED step is listed in the pull request.
 
 ## Rules
 
-- One pull request on the branch above into `main`, opened ready for review. This repo has no pull request template. The body follows tounsoo/home `standards/pull-requests.md` and the `pr` skill.
+- One pull request on the branch above into `main`, opened ready for review. This repo has no pull request template. The body follows tounsoo/home `standards/pull-requests.md` and the `mattpocock-skills:pr` skill.
 - Git follows tounsoo/home `standards/git.md`. Never merge, force-push or rebase pushed history. To bring in the base, merge `origin/main`. Mike merges only on Ben's word.
 - Changes to `AGENTS.md`, `CLAUDE.md` and `.claude/` need Ben's yes.
 - `gh` and the GitHub MCP tools are both fine.
