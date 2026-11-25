@@ -74,7 +74,7 @@ pnpm test
 
 This runs Vitest with `vitest.config.ts`, which runs every story in `src/stories/` in headless Chromium, with its play function, through `@storybook/addon-vitest`. A story without a play function only has to render. The play functions type, delete and submit forms through the rendered input the way a person does. None of them pastes yet, so check a paste change by hand in `pnpm storybook`.
 
-In a Claude Duet thread the Chromium download is blocked, so this step is `BLOCKED` there. Say so in the pull request, and name the stories a reviewer should try in `pnpm storybook` (port 6006). `features/` lists them per feature.
+Where the Chromium download is blocked, for example in some cloud agent environments, this step is `BLOCKED`. Say so in the pull request, and name the stories a reviewer should try in `pnpm storybook` (port 6006). `features/` lists them per feature.
 
 ### What each change needs
 

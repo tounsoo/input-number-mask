@@ -1,12 +1,10 @@
 @AGENTS.md
 
-@.claude/pstack-models.md
-
 ## Claude only
 
-- Skills and agents from the pstack-claude plugin have the `pstack:` prefix. This repo vendors the copy in `.claude/skills/` and `.claude/agents/`, so drop the prefix. A `<plugin>` path means `.claude`. Duet threads follow `.claude/thread-start.md`.
-- `Agent` has no `readonly` parameter. Where a skill spawns a subagent with `readonly: true`, tell it in its prompt not to edit files, commit or push.
-- GitHub work uses the GitHub MCP tools, not `gh` or the `watch-pr` script.
-- Fable runs only where `.claude/pstack-models.md` names it or where Ben approves it in his own message in that run.
-- Duet threads: nothing in `.claude/` loads by itself, and the `@` imports above do not expand. Read `AGENTS.md`, then `.claude/pstack-models.md`, then `.claude/thread-start.md`.
+- Work happens in T3 Code threads (Claude Code) on a branch named `t3/<slug>`. A thread opens a ready pull request into `main`, gets CI green, and has a Gemini 4 Neon review subagent review it, at most 3 rounds.
+- Mike merges only on Ben's word. Threads never merge or force-push, and do not edit `AGENTS.md` or `CLAUDE.md` outside a pull request Ben approves.
+- GitHub work may use `gh` or the GitHub MCP tools.
+- Matt Pocock's skills replace any other workflow skills: `tdd`, `diagnosing-bugs`, `code-review`, `pr`, `grill-with-docs`, `to-spec` and `to-tickets`. Prove each change with the repo's `verify` skill, `.claude/skills/verify/SKILL.md`.
+- `Agent` has no `readonly` parameter. Where a skill spawns a read-only subagent, tell it in its prompt not to edit files, commit or push.
 - Run `pnpm check:self` with the other checks. Home's `standards/self-correcting.md` is the format; this file does not copy it.
