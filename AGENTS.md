@@ -6,7 +6,7 @@ This file is for anyone changing `@tounsoo/input-number-mask`, including agents.
 
 - Work happens in T3 Code threads (Claude Code) on Ben's machine, each on a branch named `t3/<slug>`. A Cursor cloud agent is a fallback only.
 - A thread opens a ready pull request into `main`, gets CI green, and has a Gemini 4 Neon review subagent review it, at most 3 rounds.
-- Mike merges only on Ben's word. Threads never merge or force-push, and do not edit `AGENTS.md` or `CLAUDE.md` outside a pull request Ben approves.
+- Mike, Ben's engineering lead bot, merges only on Ben's word. Threads never merge or force-push, and do not edit `AGENTS.md`, `CLAUDE.md` or `.claude/` outside a pull request Ben approves.
 - Threads may use `gh` and the GitHub MCP tools.
 - Matt Pocock's skills (mattpocock-skills) are the workflow skills: `tdd`, `diagnosing-bugs`, `code-review`, `pr`, `grill-with-docs`, `to-spec` and `to-tickets`. They come from the user's install, not this repo. This repo keeps only its own `verify` skill in `.claude/skills/verify/`.
 
